@@ -90,7 +90,17 @@ struct CelestialBody {
     Vector3 force;
 };
 
-const double G = 3;
+const double G = 2.95e-6;
+
+// dist(matplotlib units)/unit_AU = dist in AU
+double unit_AU=1;
+// t(s)/unit_days = days passed in simulation
+double unit_days=100;
+
+//simulation parameters
+double simulation_runtime=2500.00;
+//simulation timestep
+double dt=0.33;
 
 
 Vector3 calculate_gravitational_force(const CelestialBody& body, const CelestialBody& attractor)
@@ -132,56 +142,67 @@ void simulation_step(std::vector<CelestialBody>& celestial_bodies, double dt)
     }
 }
 
+// initial velocity for perfect circular orbit around given primary gravitational body and orbit radius
 double get_orbit_init_velocity(double pgb_mass, double orbit_radius, double G)
 {
     return sqrt(G*pgb_mass/orbit_radius);
 }
+// time period for perfect circular orbit around given primary gravitational body and orbit radius
+double get_orbit_time(double pgb_mass, double orbit_radius, double G)
+{
+    return 2*3.141592*sqrt(pow(orbit_radius, 3)/(G*pgb_mass));
+}
 
 int main()
 {
-    double simulation_runtime=5000.00;
     double t=0;
-    double dt=0.033;
 
     std::vector<CelestialBody> solar_system = {
-        { "Sun", 'o', 80, 14, {0,0,0}, { 0, 0, 0 }, {0,0,0} }, 
-        { "Earth", 'o', 5, 5, {100,0,0}, {0,-get_orbit_init_velocity(5, 100, G), 0}, {0,0,0} }, 
-        { "Mars", 'o', 3.5, 4, {152,0,0}, {0,-get_orbit_init_velocity(3.5, 152, G), 0}, {0,0,0} }, 
+        { "Sun", 'o', 100, 10, {0,0,0}, { 0, 0, 0 }, {0,0,0} }, 
+        { "Earth", 'o', 3e-3, 1, {1,0,0}, {0,-get_orbit_init_velocity(100, 1, G), 0}, {0,0,0} }
+        //{ "Mars", 'o', 3.5, 4, {152,0,0}, {0,-get_orbit_init_velocity(3.5, 152, G)*2, 0}, {0,0,0} }, 
         //{ "Asteroid 1", 's', .45, {-200,50,0}, {5,0, 0}, {0,0,0} }, 
         //{ "Asteroid 2", 's', .4, {200,-50,0}, {-10,0, 0}, {0,0,0} }, 
         //{ "Rocket", '^', 0.0085, {-100,11,0}, {2,-5, 0}, {0,0,0} }
     };
 
-    std::cout<<std::fixed<<std::setprecision(6);
 
-    std::ofstream data_file ("solar_system_data.csv");
-    data_file<<"Time";
+    unit_days = get_orbit_time(100, unit_AU, G)/364.25;
+
+    std::ofstream solarsys_data_file ("solar_system_data.csv");
+    std::ofstream sim_data_file ("simulation_parameters.csv");
+
+    sim_data_file<<"runtime,timestep,astrounit_scale,dayunit_scale\n";
+    sim_data_file<<simulation_runtime<<','<<dt<<','<<unit_AU<<','<<unit_days;
+    
+
+    solarsys_data_file<<"Time";
     for (auto& body:solar_system) {
-        data_file<<","<<body.name<<"_X,"<<body.name<<"_Y,"<<body.name<<"_Z,"<<body.name<<"_mass,"<<body.name<<"_radius,"<<body.name<<"_shape";
+        solarsys_data_file<<","<<body.name<<"_X,"<<body.name<<"_Y,"<<body.name<<"_Z,"<<body.name<<"_mass,"<<body.name<<"_radius,"<<body.name<<"_shape";
     }
-    data_file<<"\n";
+    solarsys_data_file<<"\n";
 
     while (t<simulation_runtime)
     {
         simulation_step(solar_system, dt);
         std::cout<<"----------------\nTime: " << t << "s";
-        data_file<<t;
+        solarsys_data_file<<t;
         // update parameters in solar system data
         for (auto& body:solar_system) {
-            data_file<<","<<body.r.x<<","<<body.r.y<<","<<body.r.z<<","<<body.mass<<","<<body.radius<<","<<body.shape;
+            solarsys_data_file<<","<<body.r.x<<","<<body.r.y<<","<<body.r.z<<","<<body.mass<<","<<body.radius<<","<<body.shape;
         }
-        data_file<<'\n';
+        solarsys_data_file<<'\n';
 
         t+=dt;
     }
 
-    data_file.close();
+    solarsys_data_file.close();
     std::this_thread::sleep_for(std::chrono::milliseconds(500));
 
     // contact python
     
-    std::cout<<"\n\nContacting Python..."<<std::endl;
-    int result = system("python solar_system_viz_MP.py");
+    //std::cout<<"\n\nContacting Python..."<<std::endl;
+    //int result = system("python solar_system_viz_MP.py");
 
     return 0;
 }
