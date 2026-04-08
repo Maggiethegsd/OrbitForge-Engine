@@ -22,20 +22,20 @@ np.random.seed(19680801)
 
 # animation parameters 
 frames_to_render=5000
-frame_step=10
+frame_step=5
 frames_output_path = r'C:/Users/lenovo/Documents/Lamberts_BVP/orbit_frames/'
 
 # note - animation fps will be scaled by frame stepping to interpolate accurate time
 anim_title='Solar System'
 anim_extension='.mp4'
-anim_fps=25
+anim_fps=27
 anim_dpi=100
 anim_output_path = r'C:/Users/lenovo/Documents/Lamberts_BVP/'
 
 lock_frame_to_pgb=True
 
-space_bounds_x=5
-space_bounds_y=5
+space_bounds_x=2
+space_bounds_y=2
 
 plt.style.use('dark_background')
 
@@ -76,19 +76,20 @@ def render_frame_task(args):
 
         for body in celestial_bodies:
             # trail data upto this point
-            trail_start = max(0, frame-1000)
-            trail_x = ss_data[f'{body}_X'][0:frame+1]
-            trail_y = ss_data[f'{body}_Y'][0:frame+1]
-            worker_assigned_axis.plot(trail_x, trail_y, color=bodies_colors[body], ls='--', linewidth=1, alpha=0.6)
+            if ss_data[f'{body}_draw'][1]==True:
+                trail_start = max(0, frame-1000)
+                trail_x = ss_data[f'{body}_X'][0:frame+1]
+                trail_y = ss_data[f'{body}_Y'][0:frame+1]
+                worker_assigned_axis.plot(trail_x, trail_y, color=bodies_colors[body], ls='--', linewidth=1, alpha=0.6)
 
-            # plot current point with circle (scatterplot)
-            current_x=ss_data[f'{body}_X'][frame]
-            current_y=ss_data[f'{body}_Y'][frame]
-  
-            body_shape=ss_data[f'{body}_shape'][frame]  
-            body_radius=ss_data[f'{body}_radius'][frame]
+                # plot current point with circle (scatterplot)
+                current_x=ss_data[f'{body}_X'][frame]
+                current_y=ss_data[f'{body}_Y'][frame]
+    
+                body_shape=ss_data[f'{body}_shape'][frame]  
+                body_radius=ss_data[f'{body}_radius'][frame]
 
-            worker_assigned_axis.plot(current_x, current_y, label=body, marker=body_shape, ls='', color=bodies_colors[body], ms=body_radius, mec='white')
+                worker_assigned_axis.plot(current_x, current_y, label=body, marker=body_shape, ls='', color=bodies_colors[body], ms=body_radius, mec='white')
         
         if not worker_assigned_axis.get_legend():
             worker_assigned_axis.legend(fontsize='medium', markerscale=0.5, loc='upper right', framealpha=0.5, edgecolor='white', labelcolor='white')
@@ -135,8 +136,10 @@ if __name__=='__main__':
     bodies_colors['Venus']='gold'
     bodies_colors['Earth']='royalblue'
     bodies_colors['Mars']='red'
-    bodies_colors['Jupiter']='lemonchiffon'
-    bodies_colors['Saturn']='beige'
+    # not accounting outer belt planets for now as they have minimal input of gravity 
+
+    #bodies_colors['Jupiter']='lemonchiffon'
+    #bodies_colors['Saturn']='beige'
     #bodies_colors['Uranus']='lightcyan'
     #bodies_colors['Neptune']='mediumslateblue'
 
