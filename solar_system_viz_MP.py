@@ -58,12 +58,14 @@ def style_worker_axes(ax):
 def render_frame_task(args):
     global worker_assigned_fig, worker_assigned_axis
     # get frame number, simulation data and other things via multiprocessing argument
-    frame, ss_data, celestial_bodies, bodies_colors = args
+    frame, ss_data, rocket_data, celestial_bodies, bodies_colors, rocket_color = args
 
     try:
         # set parameters and visuals 
         pgb_x = ss_data['Sun_X'][frame]
         pgb_y = ss_data['Sun_Y'][frame]
+
+        frame_time = ss_data['Time'][frame]
         
         worker_assigned_axis.clear()
 
@@ -71,7 +73,7 @@ def render_frame_task(args):
         worker_assigned_axis.set_xlim(pgb_x-space_bounds_x, pgb_x+space_bounds_x)
         worker_assigned_axis.set_ylim(pgb_y-space_bounds_y, pgb_y+space_bounds_y)
 
-        worker_assigned_axis.set_title(f'N-Body Orbital Simulation\nTime: {round(ss_data['Time'][frame],2)} days')
+        worker_assigned_axis.set_title(f'N-Body Orbital Simulation\nTime: {round(frame_time,2)} days')
         worker_assigned_axis.grid(True, linestyle='--', alpha=0.4)
 
         for body in celestial_bodies:
@@ -90,7 +92,17 @@ def render_frame_task(args):
                 body_radius=ss_data[f'{body}_radius'][frame]
 
                 worker_assigned_axis.plot(current_x, current_y, label=body, marker=body_shape, ls='', color=bodies_colors[body], ms=body_radius, mec='white')
-        
+
+        if frame_time >= rocket_data['Time'][0]:
+            trail_x = rocket_data['Rocket_X'][0:frame+1]
+            trail_y = rocket_data['Rocket_Y'][0:frame+1]
+            worker_assigned_axis.plot(trail_x, trail_y, color=rocket_color, ls='dashdot', linewidth=1, alpha=0.8)
+
+            current_x = rocket_data['Rocket_X'][frame]
+            current_y = rocket_data['Rocket_Y'][frame]
+            worker_assigned_axis.plot(current_x, current_y, label='Rocket', marker='^', ls='', color=rocket_color, ms=1, mec='white')
+
+
         if not worker_assigned_axis.get_legend():
             worker_assigned_axis.legend(fontsize='medium', markerscale=0.5, loc='upper right', framealpha=0.5, edgecolor='white', labelcolor='white')
 
@@ -118,6 +130,7 @@ if __name__=='__main__':
     # load csv data into pandas dataframe
     try:
         ss_data = pd.read_csv("solar_system_data.csv")
+        rocket_data = pd.read_csv("rocket_data.csv")
         
     except Exception as e:
         print(f'{bcolors.FAIL}Failed to read simulation data...\nCause: {e}')
@@ -125,11 +138,16 @@ if __name__=='__main__':
         print(f'{bcolors.OKGREEN}Successfully read simulation data!')
 
     np_ss_data={col:ss_data[col].values for col in ss_data.columns}
+    np_rocket_data={col:rocket_data[col].values for col in rocket_data.columns}
 
     # load celestial bodies names from data and assign random colors to each (dictionary)
     celestial_bodies = [col.replace('_X','') for col in ss_data.columns if col.endswith('_X')]
+    rocket = [col.replace('_X','') for col in rocket_data.columns if col.endswith('_X')][0]
+
     # give all bodies a random color. especially meant for miscellaneous bodies such as asteroids
     bodies_colors={body:np.random.rand(3) for body in celestial_bodies}
+    rocket_color=np.random.rand(3)
+
     # now give special colors to some special bodies
     bodies_colors['Sun']='yellow'
     bodies_colors['Mercury']='darkgray'
@@ -173,7 +191,7 @@ if __name__=='__main__':
         frames = range(1, frames_to_render+1, frame_step)
 
         # arguments to be passed to each worker task
-        task_args=[(frame, np_ss_data, celestial_bodies, bodies_colors) for frame in frames]
+        task_args=[(frame, np_ss_data, np_rocket_data, celestial_bodies, bodies_colors, rocket_color) for frame in frames]
         
         # start multiprocessing
         with multiprocessing.Pool(processes=worker_count, initializer=worker_task) as pool:
