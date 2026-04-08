@@ -21,21 +21,21 @@ from alive_progress import alive_bar
 np.random.seed(19680801)
 
 # animation parameters 
-frames_to_render=50000
-frame_step=30
+frames_to_render=5000
+frame_step=10
 frames_output_path = r'C:/Users/lenovo/Documents/Lamberts_BVP/orbit_frames/'
 
 # note - animation fps will be scaled by frame stepping to interpolate accurate time
 anim_title='Solar System'
 anim_extension='.mp4'
-anim_fps=90
-anim_dpi=150
+anim_fps=25
+anim_dpi=100
 anim_output_path = r'C:/Users/lenovo/Documents/Lamberts_BVP/'
 
 lock_frame_to_pgb=True
 
-space_bounds_x=2
-space_bounds_y=2
+space_bounds_x=5
+space_bounds_y=5
 
 plt.style.use('dark_background')
 
@@ -51,14 +51,14 @@ def worker_task():
 
 def style_worker_axes(ax):
     # set parameters and visuals
-    ax.set_xlabel('X')
-    ax.set_ylabel('Y')
+    ax.set_xlabel('X (AU)')
+    ax.set_ylabel('Y (AU)')
 
 # frame rendering task: what each worker does as to 'render' each frame
 def render_frame_task(args):
     global worker_assigned_fig, worker_assigned_axis
     # get frame number, simulation data and other things via multiprocessing argument
-    frame, ss_data, sim_data, celestial_bodies, bodies_colors = args
+    frame, ss_data, celestial_bodies, bodies_colors = args
 
     try:
         # set parameters and visuals 
@@ -71,14 +71,12 @@ def render_frame_task(args):
         worker_assigned_axis.set_xlim(pgb_x-space_bounds_x, pgb_x+space_bounds_x)
         worker_assigned_axis.set_ylim(pgb_y-space_bounds_y, pgb_y+space_bounds_y)
 
-        unit_days=sim_data['dayunit_scale'][0]
-
-        worker_assigned_axis.set_title(f'N-Body Orbital Simulation\nTime: {round(ss_data['Time'][frame]/unit_days,2)} days')
+        worker_assigned_axis.set_title(f'N-Body Orbital Simulation\nTime: {round(ss_data['Time'][frame],2)} days')
         worker_assigned_axis.grid(True, linestyle='--', alpha=0.4)
 
         for body in celestial_bodies:
             # trail data upto this point
-            trail_start = max(0, frame-500)
+            trail_start = max(0, frame-1000)
             trail_x = ss_data[f'{body}_X'][0:frame+1]
             trail_y = ss_data[f'{body}_Y'][0:frame+1]
             worker_assigned_axis.plot(trail_x, trail_y, color=bodies_colors[body], ls='--', linewidth=1, alpha=0.6)
@@ -119,7 +117,6 @@ if __name__=='__main__':
     # load csv data into pandas dataframe
     try:
         ss_data = pd.read_csv("solar_system_data.csv")
-        sim_data = pd.read_csv("simulation_parameters.csv")  
         
     except Exception as e:
         print(f'{bcolors.FAIL}Failed to read simulation data...\nCause: {e}')
@@ -127,14 +124,21 @@ if __name__=='__main__':
         print(f'{bcolors.OKGREEN}Successfully read simulation data!')
 
     np_ss_data={col:ss_data[col].values for col in ss_data.columns}
-    np_sim_data={col:sim_data[col].values for col in sim_data.columns}
 
     # load celestial bodies names from data and assign random colors to each (dictionary)
     celestial_bodies = [col.replace('_X','') for col in ss_data.columns if col.endswith('_X')]
+    # give all bodies a random color. especially meant for miscellaneous bodies such as asteroids
     bodies_colors={body:np.random.rand(3) for body in celestial_bodies}
-    bodies_colors['Earth']='blue'
+    # now give special colors to some special bodies
     bodies_colors['Sun']='yellow'
+    bodies_colors['Mercury']='darkgray'
+    bodies_colors['Venus']='gold'
+    bodies_colors['Earth']='royalblue'
     bodies_colors['Mars']='red'
+    bodies_colors['Jupiter']='lemonchiffon'
+    bodies_colors['Saturn']='beige'
+    #bodies_colors['Uranus']='lightcyan'
+    #bodies_colors['Neptune']='mediumslateblue'
 
     frame_success=0
     frame_failed=0
@@ -166,7 +170,7 @@ if __name__=='__main__':
         frames = range(1, frames_to_render+1, frame_step)
 
         # arguments to be passed to each worker task
-        task_args=[(frame, np_ss_data, np_sim_data, celestial_bodies, bodies_colors) for frame in frames]
+        task_args=[(frame, np_ss_data, celestial_bodies, bodies_colors) for frame in frames]
         
         # start multiprocessing
         with multiprocessing.Pool(processes=worker_count, initializer=worker_task) as pool:
@@ -192,7 +196,7 @@ if __name__=='__main__':
         print(f'{bcolors.OKBLUE}Finished Rendering Frames!{bcolors.ENDC}')
 
         # pass frame sequence to sequential renderer
-        sequential_renderer.generate_video(frames_output_path, anim_fps*10/frame_step, anim_title+anim_extension, anim_output_path)
+        sequential_renderer.generate_video(frames_output_path, anim_fps, anim_title+anim_extension, anim_output_path)
 
     else:
         print(f'{bcolors.WARNING}Cancelled render...')

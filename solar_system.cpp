@@ -79,6 +79,30 @@ Vector3 operator*(double scalar, const Vector3& rhs)
     return rhs*scalar;
 }
 
+// true solar data in SI units
+const struct TrueSolarData {
+    static constexpr double mass_sun = 1.989e30;
+
+    static constexpr double mass_mercury = 3.30e23;
+    static constexpr double mass_venus = 4.87e24;
+    static constexpr double mass_earth = 5.97e24;
+    static constexpr double mass_mars = 6.42e23;
+    static constexpr double mass_jupiter = 1.90e27;
+    static constexpr double mass_saturn = 5.68e26;
+    static constexpr double mass_uranus = 8.68e25;
+    static constexpr double mass_neptune = 1.02e26;
+
+    static constexpr double orbit_radius_mercury = 5.8e10;
+    static constexpr double orbit_radius_venus = 1.08e11;
+    static constexpr double orbit_radius_earth = 1.50e11;
+    static constexpr double orbit_radius_mars = 2.28e11;
+    static constexpr double orbit_radius_jupiter = 7.78e11;
+    static constexpr double orbit_radius_saturn = 1.43e12;
+    static constexpr double orbit_radius_uranus = 2.88e12;
+    static constexpr double orbit_radius_neptune = 4.50e12;
+
+};
+
 struct CelestialBody {
     // position and velocity
     std::string name;
@@ -90,17 +114,23 @@ struct CelestialBody {
     Vector3 force;
 };
 
-const double G = 2.95e-6;
-
-// dist(matplotlib units)/unit_AU = dist in AU
-double unit_AU=1;
-// t(s)/unit_days = days passed in simulation
-double unit_days=100;
+const double G = 2.95e-4;
 
 //simulation parameters
+// total number of days to simulate
 double simulation_runtime=2500.00;
-//simulation timestep
-double dt=0.33;
+// simulation timestep (days)
+double dt=0.1;
+
+double to_solarmass(double mass_in_kg)
+{
+    return mass_in_kg/1.989e30;
+}
+
+double to_au(double dist_in_m)
+{
+    return dist_in_m/149597870700;
+}
 
 
 Vector3 calculate_gravitational_force(const CelestialBody& body, const CelestialBody& attractor)
@@ -147,7 +177,7 @@ double get_orbit_init_velocity(double pgb_mass, double orbit_radius, double G)
 {
     return sqrt(G*pgb_mass/orbit_radius);
 }
-// time period for perfect circular orbit around given primary gravitational body and orbit radius
+// time period (days) for perfect circular orbit around given primary gravitational body and orbit radius
 double get_orbit_time(double pgb_mass, double orbit_radius, double G)
 {
     return 2*3.141592*sqrt(pow(orbit_radius, 3)/(G*pgb_mass));
@@ -158,23 +188,21 @@ int main()
     double t=0;
 
     std::vector<CelestialBody> solar_system = {
-        { "Sun", 'o', 100, 10, {0,0,0}, { 0, 0, 0 }, {0,0,0} }, 
-        { "Earth", 'o', 3e-3, 1, {1,0,0}, {0,-get_orbit_init_velocity(100, 1, G), 0}, {0,0,0} }
-        //{ "Mars", 'o', 3.5, 4, {152,0,0}, {0,-get_orbit_init_velocity(3.5, 152, G)*2, 0}, {0,0,0} }, 
+        { "Sun", 'o', 1, 15, {0,0,0}, { 0, 0, 0 }, {0,0,0} }, 
+        { "Mercury", 'o', to_solarmass(TrueSolarData::mass_mercury), 1.5, {to_au(TrueSolarData::orbit_radius_mercury),0,0}, {0,-get_orbit_init_velocity(1, to_au(TrueSolarData::orbit_radius_mercury), G), 0}, {0,0,0}},
+        { "Venus", 'o', to_solarmass(TrueSolarData::mass_venus), 2.8, {to_au(TrueSolarData::orbit_radius_venus),0,0}, {0,-get_orbit_init_velocity(1, to_au(TrueSolarData::orbit_radius_venus), G), 0}, {0,0,0}},
+        { "Earth", 'o', to_solarmass(TrueSolarData::mass_earth), 3, {1,0,0}, {0,-get_orbit_init_velocity(1, 1, G), 0}, {0,0,0} },
+        { "Mars", 'o', to_solarmass(TrueSolarData::mass_mars), 2, {to_au(TrueSolarData::orbit_radius_mars),0,0}, {0,-get_orbit_init_velocity(1, to_au(TrueSolarData::orbit_radius_mars), G), 0}, {0,0,0} },
+        { "Jupiter", 'o', to_solarmass(TrueSolarData::mass_jupiter), 6, {to_au(TrueSolarData::orbit_radius_jupiter),0,0}, {0,-get_orbit_init_velocity(1, to_au(TrueSolarData::orbit_radius_jupiter), G), 0}, {0,0,0} },
+        { "Saturn", 'o', to_solarmass(TrueSolarData::mass_saturn), 5, {to_au(TrueSolarData::orbit_radius_saturn),0,0}, {0,-get_orbit_init_velocity(1, to_au(TrueSolarData::orbit_radius_saturn), G), 0}, {0,0,0} },
+        //{ "Uranus", 'o', to_solarmass(TrueSolarData::mass_uranus), 4, {to_au(TrueSolarData::orbit_radius_uranus),0,0}, {0,-get_orbit_init_velocity(1, to_au(TrueSolarData::orbit_radius_neptune), G), 0}, {0,0,0} },
+        //{ "Neptune", 'o', to_solarmass(TrueSolarData::mass_neptune), 4.25, {to_au(TrueSolarData::orbit_radius_neptune),0,0}, {0,-get_orbit_init_velocity(1, to_au(TrueSolarData::orbit_radius_neptune), G), 0}, {0,0,0} }
         //{ "Asteroid 1", 's', .45, {-200,50,0}, {5,0, 0}, {0,0,0} }, 
         //{ "Asteroid 2", 's', .4, {200,-50,0}, {-10,0, 0}, {0,0,0} }, 
         //{ "Rocket", '^', 0.0085, {-100,11,0}, {2,-5, 0}, {0,0,0} }
     };
 
-
-    unit_days = get_orbit_time(100, unit_AU, G)/364.25;
-
     std::ofstream solarsys_data_file ("solar_system_data.csv");
-    std::ofstream sim_data_file ("simulation_parameters.csv");
-
-    sim_data_file<<"runtime,timestep,astrounit_scale,dayunit_scale\n";
-    sim_data_file<<simulation_runtime<<','<<dt<<','<<unit_AU<<','<<unit_days;
-    
 
     solarsys_data_file<<"Time";
     for (auto& body:solar_system) {
