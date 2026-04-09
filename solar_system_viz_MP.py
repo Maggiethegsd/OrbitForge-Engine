@@ -22,13 +22,18 @@ np.random.seed(19680801)
 
 # animation parameters 
 frames_to_render=5000
-frame_step=5
+frame_step=3
 frames_output_path = r'C:/Users/lenovo/Documents/Lamberts_BVP/orbit_frames/'
+
+theme_font_family = 'Times New Roman'
+theme_font_color = 'white'
+theme_font_weight = 'normal'
+theme_font_size = 8
 
 # note - animation fps will be scaled by frame stepping to interpolate accurate time
 anim_title='Solar System'
 anim_extension='.mp4'
-anim_fps=27
+anim_fps=24
 anim_dpi=100
 anim_output_path = r'C:/Users/lenovo/Documents/Lamberts_BVP/'
 
@@ -38,6 +43,15 @@ space_bounds_x=2
 space_bounds_y=2
 
 plt.style.use('dark_background')
+plt.rcParams.update( {
+    'font.family':theme_font_family,
+    'font.size':theme_font_size,
+    'font.weight':theme_font_weight,
+    'text.color':theme_font_color,
+    'axes.labelcolor':theme_font_color,
+    'xtick.color':theme_font_color,
+    'ytick.color':theme_font_color
+})
 
 # worker task: what each worker does beforehand
 worker_assigned_axis = None
@@ -53,6 +67,19 @@ def style_worker_axes(ax):
     # set parameters and visuals
     ax.set_xlabel('X (AU)')
     ax.set_ylabel('Y (AU)')
+
+    ax.spines['top'].set_visible(False)
+    ax.spines['right'].set_visible(False)
+
+    # Dim the bottom and left borders
+    ax.spines['bottom'].set_color('#444444')
+    ax.spines['left'].set_color('#444444')
+    
+    # Make tick marks subtle
+    ax.tick_params(colors='#888888', labelsize=10)
+    
+    # Push the grid to the absolute background (zorder=0) and make it very faint
+    ax.grid(True, color="#8DBAFF2B", linestyle='-', linewidth=0.5, zorder=0)
 
 # frame rendering task: what each worker does as to 'render' each frame
 def render_frame_task(args):
@@ -73,7 +100,7 @@ def render_frame_task(args):
         worker_assigned_axis.set_xlim(pgb_x-space_bounds_x, pgb_x+space_bounds_x)
         worker_assigned_axis.set_ylim(pgb_y-space_bounds_y, pgb_y+space_bounds_y)
 
-        worker_assigned_axis.set_title(f'N-Body Orbital Simulation\nTime: {round(frame_time,2)} days')
+        worker_assigned_axis.set_title(f'N-Body Orbital Simulation\nt: {round(frame_time,2)} days')
         worker_assigned_axis.grid(True, linestyle='--', alpha=0.4)
 
         for body in celestial_bodies:
@@ -107,7 +134,11 @@ def render_frame_task(args):
             worker_assigned_axis.legend(fontsize='medium', markerscale=0.5, loc='upper right', framealpha=0.5, edgecolor='white', labelcolor='white')
 
         # save figure to disk 
-        worker_assigned_fig.savefig(frames_output_path+fr'/frame{frame:04d}.png', dpi=anim_dpi)
+        worker_assigned_fig.savefig(frames_output_path+fr'/frame{frame:04d}.png', 
+                                    dpi=anim_dpi,
+                                    bbox_inches='tight',
+                                    pad_inches=0.2,
+                                    facecolor=worker_assigned_fig.get_facecolor())
         return (frame, True)
     
     except Exception as e:
@@ -129,8 +160,8 @@ if __name__=='__main__':
 
     # load csv data into pandas dataframe
     try:
-        ss_data = pd.read_csv("solar_system_data.csv")
-        rocket_data = pd.read_csv("rocket_data.csv")
+        ss_data = pd.read_csv("C:/Users/lenovo/Documents/Lamberts_BVP/simulation_data/solar_system_data.csv")
+        rocket_data = pd.read_csv("C:/Users/lenovo/Documents/Lamberts_BVP/simulation_data/rocket_data.csv")
         
     except Exception as e:
         print(f'{bcolors.FAIL}Failed to read simulation data...\nCause: {e}')
@@ -197,7 +228,7 @@ if __name__=='__main__':
         with multiprocessing.Pool(processes=worker_count, initializer=worker_task) as pool:
             # use alive bar for beautification (awesome module)
             with alive_bar(len(frames)) as bar:
-                for frame, success in pool.imap_unordered(render_frame_task, task_args):
+                for frame, success in pool.imap_unordered(render_frame_task, task_args, chunksize=4):
                     if success:
                         frame_success+=1
                     else:
