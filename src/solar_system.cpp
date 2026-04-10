@@ -77,7 +77,7 @@ int main()
     bool is_first_tick = true;
     while (t<simulation_runtime)
     {
-        simulation_step(solar_system, rocket, rocket_launched, dt, true);
+        simulation_step(solar_system, rocket, rocket_launched, dt, false);
 
         Vector3 earth_pos = Vector3::zero;
         Vector3 earth_vel = Vector3::zero;
@@ -168,12 +168,13 @@ int main()
 
             double mars_EA = get_eccentric_anomaly(mars_r_GC.x, mars_r_GC.y, mars_a, mars_e);
 
-            Vector3 r2 = get_future_position_theoretical(sun_pos, sun_mass, G, mission_duration, mars_a, mars_e, mars_EA);
-            // calculate encke deviation
-            Vector3 dr2 = calculate_encke_deviation("Mars", r2, mars_a, mars_e, mars_EA, mission_duration, dt, solar_system, sun_pos, sun_mass);
+            std::vector <Vector3> mars_nominal_path = get_nominal_path(sun_pos, sun_mass, mars_a, mars_e, mars_EA, mission_duration, dt);
             //apply encke deviation
-            r2+=dr2;
+            Vector3 dr2 = calculate_encke_deviation("Mars", mars_nominal_path, dt, solar_system, sun_pos, sun_mass);
+            Vector3 r2 = mars_nominal_path.back();
 
+            r2 += dr2;
+            
             Vector3 u = solve_lambert(earth_pos, r2, sun_pos, sun_mass, t, t+mission_duration, G);
             
             rocket.r = earth_pos;

@@ -139,18 +139,35 @@
             body_ghost.v += acc_new * 0.5 * dt;
             trajectory.push_back(body_ghost.r);
         }
-        
+
         return trajectory;
     }
+    // Generates a pure theoretical Keplerian flight path (The Nominal Trajectory)
+    std::vector<Vector3> get_nominal_path(Vector3 pgb_r, double pgb_mass, double a, double e, double E_initial, double time_of_flight, double dt)
+    {
+        std::vector<Vector3> nominal_path;
+        
+        // Reserve memory to prevent expensive vector reallocations
+        int steps = std::ceil(time_of_flight / dt);
+        nominal_path.reserve(steps);
 
-    Vector3 calculate_encke_deviation(std::string target_name, Vector3 r_kep, double a, double e, double E_initial, double time_of_flight, double dt, const std::vector<CelestialBody>& affectors, Vector3 pgb_r, double pgb_mass)
+        for (double t = 0; t < time_of_flight; t += dt) {
+            Vector3 r_kep = get_future_position_theoretical(pgb_r, pgb_mass, G, t, a, e, E_initial);
+            nominal_path.push_back(r_kep);
+        }
+        
+        return nominal_path;
+    }
+
+    Vector3 calculate_encke_deviation(std::string target_name, std::vector<Vector3>& nominal_path, double dt, const std::vector<CelestialBody>& affectors, Vector3 pgb_r, double pgb_mass)
     {
         // encke deviations
         Vector3 dr = Vector3::zero;
         Vector3 dv = Vector3::zero;
 
-        for (double t = 0; t < time_of_flight; t+=dt) {
-            Vector3 r_true = r_kep+=dr;
+        for (size_t i = 0; i < nominal_path.size(); i++) {
+            Vector3 r_kep = nominal_path[i];
+            Vector3 r_true = r_kep+dr;
             
             Vector3 acc_kep_sun = calculate_raw_acceleration(r_kep, pgb_r, pgb_mass);
             Vector3 acc_true_sun = calculate_raw_acceleration(r_true, pgb_r, pgb_mass);
