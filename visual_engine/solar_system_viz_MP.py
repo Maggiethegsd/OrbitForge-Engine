@@ -21,8 +21,8 @@ from alive_progress import alive_bar
 np.random.seed(19680801)
 
 # animation duration parameters 
-frames_to_render=2500
-frame_step=20
+frames_to_render=150000;
+frame_step=400;
 frames_output_path = r'C:/Users/lenovo/Documents/Lamberts_BVP/orbit_frames/'
 
 # animation file parameters
@@ -151,7 +151,7 @@ def render_frame_task(args):
                     worker_assigned_axis.text(-2.25, -1, rf'Mars True Anomaly ($\theta_2$): ${true_anomaly:.2f}\degree$', bbox=dict(facecolor='white', alpha=0.1))
                     worker_assigned_axis.text(-2.25, -1.5, rf'Mars Eccentric Anomaly ($\phi_2$): ${ecc_anomaly:.2f}\degree$', bbox=dict(facecolor='white', alpha=0.1))
 
-        if frame_time >= rocket_data['Time'][0]:
+        if (frame_time > 20):
             trail_x = rocket_data['Rocket_X'][0:frame+1]
             trail_y = rocket_data['Rocket_Y'][0:frame+1]
             worker_assigned_axis.plot(trail_x, trail_y, color=rocket_color, ls='dashdot', linewidth=1, alpha=0.8)
@@ -174,7 +174,7 @@ def render_frame_task(args):
                                     pad_inches=0.2,
                                     facecolor=worker_assigned_fig.get_facecolor())
         return (frame, True)
-    
+
     except Exception as e:
         print(f'{bcolors.FAIL}Failed to render frame {frame}.\n{bcolors.OKCYAN}Cause:{bcolors.FAIL}{e}')
         return (frame, False)
