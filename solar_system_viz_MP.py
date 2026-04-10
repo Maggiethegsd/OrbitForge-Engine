@@ -21,11 +21,11 @@ from alive_progress import alive_bar
 np.random.seed(19680801)
 
 # animation parameters 
-frames_to_render=5000
+frames_to_render=2000
 frame_step=3
 frames_output_path = r'C:/Users/lenovo/Documents/Lamberts_BVP/orbit_frames/'
 
-theme_font_family = 'Times New Roman'
+theme_font_family = 'Segoe UI'
 theme_font_color = 'white'
 theme_font_weight = 'normal'
 theme_font_size = 8
@@ -34,7 +34,7 @@ theme_font_size = 8
 anim_title='Solar System'
 anim_extension='.mp4'
 anim_fps=24
-anim_dpi=100
+anim_dpi=150
 anim_output_path = r'C:/Users/lenovo/Documents/Lamberts_BVP/'
 
 lock_frame_to_pgb=True
@@ -79,13 +79,13 @@ def style_worker_axes(ax):
     ax.tick_params(colors='#888888', labelsize=10)
     
     # Push the grid to the absolute background (zorder=0) and make it very faint
-    ax.grid(True, color="#8DBAFF2B", linestyle='-', linewidth=0.5, zorder=0)
+    ax.grid(True, color="#8DBAFF2B", linestyle='-', linewidth=0.15, zorder=0)
 
 # frame rendering task: what each worker does as to 'render' each frame
 def render_frame_task(args):
     global worker_assigned_fig, worker_assigned_axis
     # get frame number, simulation data and other things via multiprocessing argument
-    frame, ss_data, rocket_data, celestial_bodies, bodies_colors, rocket_color = args
+    frame, ss_data, rocket_data, rocket_traj_data, celestial_bodies, bodies_colors, rocket_color = args
 
     try:
         # set parameters and visuals 
@@ -118,7 +118,7 @@ def render_frame_task(args):
                 body_shape=ss_data[f'{body}_shape'][frame]  
                 body_radius=ss_data[f'{body}_radius'][frame]
 
-                worker_assigned_axis.plot(current_x, current_y, label=body, marker=body_shape, ls='', color=bodies_colors[body], ms=body_radius, mec='white')
+                worker_assigned_axis.plot(current_x, current_y, label=body, marker=body_shape, ls='', color=bodies_colors[body], ms=body_radius)
 
         if frame_time >= rocket_data['Time'][0]:
             trail_x = rocket_data['Rocket_X'][0:frame+1]
@@ -127,7 +127,11 @@ def render_frame_task(args):
 
             current_x = rocket_data['Rocket_X'][frame]
             current_y = rocket_data['Rocket_Y'][frame]
-            worker_assigned_axis.plot(current_x, current_y, label='Rocket', marker='^', ls='', color=rocket_color, ms=1, mec='white')
+            worker_assigned_axis.plot(current_x, current_y, label='Rocket', marker='^', ls='', color=rocket_color, ms=1)
+
+            traj_x = rocket_traj_data['Traj_X']
+            traj_y = rocket_traj_data['Traj_Y']
+            worker_assigned_axis.plot(traj_x, traj_y, label='Trajectory', ls='--', color='white', lw=.1, alpha=1)
 
 
         if not worker_assigned_axis.get_legend():
@@ -162,6 +166,7 @@ if __name__=='__main__':
     try:
         ss_data = pd.read_csv("C:/Users/lenovo/Documents/Lamberts_BVP/simulation_data/solar_system_data.csv")
         rocket_data = pd.read_csv("C:/Users/lenovo/Documents/Lamberts_BVP/simulation_data/rocket_data.csv")
+        rocket_traj_data = pd.read_csv("C:/Users/lenovo/Documents/Lamberts_BVP/simulation_data/rocket_traj_data.csv")
         
     except Exception as e:
         print(f'{bcolors.FAIL}Failed to read simulation data...\nCause: {e}')
@@ -170,6 +175,7 @@ if __name__=='__main__':
 
     np_ss_data={col:ss_data[col].values for col in ss_data.columns}
     np_rocket_data={col:rocket_data[col].values for col in rocket_data.columns}
+    np_rocket_traj_data={col:rocket_traj_data[col].values for col in rocket_traj_data.columns}
 
     # load celestial bodies names from data and assign random colors to each (dictionary)
     celestial_bodies = [col.replace('_X','') for col in ss_data.columns if col.endswith('_X')]
@@ -212,7 +218,7 @@ if __name__=='__main__':
     print(f'{bcolors.OKCYAN}Cores Available: {core_count}')
     print(f'{bcolors.OKCYAN}Workers to be used: {worker_count}')
 
-    choice_render = input(f'\n{bcolors.WARNING}Start rendering? (Y/N){bcolors.ENDC}')
+    choice_render = input(f'\n{bcolors.WARNING}Start rendering? (Y/N)\n{bcolors.ENDC}')
 
     if choice_render.lower()=='y':
         print(f'{bcolors.BOLD}\n\n-------STARTING PARALLEL PROCESSING ON {core_count} CORES-------------')
@@ -222,7 +228,7 @@ if __name__=='__main__':
         frames = range(1, frames_to_render+1, frame_step)
 
         # arguments to be passed to each worker task
-        task_args=[(frame, np_ss_data, np_rocket_data, celestial_bodies, bodies_colors, rocket_color) for frame in frames]
+        task_args=[(frame, np_ss_data, np_rocket_data, np_rocket_traj_data, celestial_bodies, bodies_colors, rocket_color) for frame in frames]
         
         # start multiprocessing
         with multiprocessing.Pool(processes=worker_count, initializer=worker_task) as pool:
