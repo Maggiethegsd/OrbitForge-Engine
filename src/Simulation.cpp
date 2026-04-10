@@ -12,6 +12,8 @@
     const double G = 0.0002959122082855911;;
     const double PI  =3.1415926;
 
+    using namespace SolarData;
+
 
     // initial velocity for perfect circular orbit around given primary gravitational body and orbit radius
     double get_orbit_u(double pgb_mass, double orbit_radius, double G)
@@ -111,38 +113,31 @@
 
 
     // calculate future trajectory of body with given mass, initial position, velocity and list of all affectors in the universe
-    std::vector <Vector3> calculate_trajectory(double body_mass, Vector3 init_pos, Vector3 init_vel, std::vector<CelestialBody> affectors, double prediction_steps, double dt, bool only_affected_by_pgb)
+    std::vector<Vector3> calculate_trajectory(double body_mass, Vector3 init_pos, Vector3 init_vel, std::vector<CelestialBody> affectors, double prediction_steps, double dt, bool only_affected_by_pgb)
     {
-        // create ghost object for body
         CelestialBody body_ghost("ghost", BodyType::PLANET, body_mass, 1, 'o', init_pos, init_vel, false);
-        for (auto&body:affectors)
-            if (only_affected_by_pgb && body.name != "Sun") body_ghost.force=Vector3::zero;
+        std::vector<Vector3> trajectory;
 
-
-        std::vector <Vector3> trajectory;
         for (double t=0; t<prediction_steps; t+=dt)
         {   
-            Vector3 acc = body_ghost.force/body_mass;
-            body_ghost.r += body_ghost.v * dt + acc * 0.5 * dt * dt;
-            body_ghost.v += acc * 0.5 * dt;
+            body_ghost.r += body_ghost.v * 0.5 * dt;
 
-            body_ghost.force=Vector3::zero;
-
-            // apply forces between all bodies
+            body_ghost.force = Vector3::zero;
             for (auto& body : affectors) {
-                if (only_affected_by_pgb && body.name!="Sun") continue;
-
+                if (only_affected_by_pgb && body.name!="Sun") 
+                    continue;
                 body_ghost.force += calculate_gravitational_force(body_ghost, body);
             }
-
-            Vector3 acc_new = body_ghost.force/body_mass;
-            body_ghost.v += acc_new * 0.5 * dt;
+            
+            Vector3 acc = body_ghost.force / body_mass;
+            body_ghost.v += acc * dt;
+            
+            body_ghost.r += body_ghost.v * 0.5 * dt;
             trajectory.push_back(body_ghost.r);
         }
-
         return trajectory;
     }
-    // Generates a pure theoretical Keplerian flight path (The Nominal Trajectory)
+        // Generates a pure theoretical Keplerian flight path (The Nominal Trajectory)
     std::vector<Vector3> get_nominal_path(Vector3 pgb_r, double pgb_mass, double a, double e, double E_initial, double time_of_flight, double dt)
     {
         std::vector<Vector3> nominal_path;
@@ -166,6 +161,8 @@
         Vector3 dv = Vector3::zero;
 
         for (size_t i = 0; i < nominal_path.size(); i++) {
+            double t = i*dt;
+
             Vector3 r_kep = nominal_path[i];
             Vector3 r_true = r_kep+dr;
             
@@ -179,7 +176,16 @@
                 if (body.name=="Sun" || body.name == target_name) 
                     continue;
 
-                acc_perturb += calculate_raw_acceleration(r_true, body.r, body.mass);
+                double b_a = SolarData::get_orbit_semi_major_AU(body.name);
+                double b_e = SolarData::get_orbit_ecc(body.name);
+
+                Vector3 b_GC = pgb_r - Vector3(b_a * b_e, 0, 0);
+                Vector3 b_r_GC = body.r - b_GC;
+                double b_EA = get_eccentric_anomaly(b_r_GC.x, b_r_GC.y, b_a, b_e);
+
+                Vector3 body_r_at_t = get_future_position_theoretical(pgb_r, pgb_mass, G, t, b_a, b_e, b_EA);
+                
+                acc_perturb += calculate_raw_acceleration(r_true, body_r_at_t, body.mass);
             }
 
             Vector3 d_acc = d_acc_sun + acc_perturb;
@@ -327,22 +333,11 @@
     // uses velocity-verlet integration
     void simulation_step(std::vector<CelestialBody>& celestial_bodies, CelestialBody& rocket, bool rocket_launched, double dt, bool lock_pgb)
     {
-        for (auto&body : celestial_bodies) {
-            Vector3 acc = body.force/body.mass;
-            body.r += body.v * dt + acc * 0.5 * dt * dt;
-            body.v += acc * 0.5 * dt;
-        }
-
-        if (rocket_launched) {
-            Vector3 acc = rocket.force/rocket.mass;
-            rocket.r += rocket.v * dt + acc * 0.5 * dt * dt;
-            rocket.v += acc * 0.5 * dt;
-        }
-
+        for (auto&body : celestial_bodies) body.r += body.v * 0.5 * dt;
+        if (rocket_launched) rocket.r += rocket.v * 0.5 * dt;
+        
         for (auto&body: celestial_bodies) body.force = Vector3::zero;
         if (rocket_launched) rocket.force = Vector3::zero;
-
-
 
         for (int i = 0; i < celestial_bodies.size(); i++) {
             for (int j = 0; j < celestial_bodies.size(); j++) {
@@ -357,19 +352,24 @@
         for (auto& body:celestial_bodies)
         {
             Vector3 acc = body.force/body.mass;
-            body.v += 0.5*acc*dt;
+            body.v += acc*dt;
+        }
 
-            if (body.name=="Sun") {
-                if (lock_pgb) {
+        if (rocket_launched) {
+            Vector3 acc = rocket.force/rocket.mass;
+            rocket.v += acc * dt;
+        }
+
+
+        for (auto& body:celestial_bodies)
+        {
+            body.r += body.v * 0.5 * dt;
+            if (body.name=="Sun" && lock_pgb) {
                     body.r = Vector3::zero;
                     body.v = Vector3::zero;
-                }
             }
         }
 
-        if (rocket_launched)
-        {
-            Vector3 acc = rocket.force/rocket.mass;
-            rocket.v+=acc*0.5*dt;
-        }
+        if (rocket_launched) rocket.r += rocket.v * 0.5 * dt;
     }
+

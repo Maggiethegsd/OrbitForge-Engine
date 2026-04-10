@@ -17,6 +17,7 @@ CelestialBody create_planet(std::string name, double radius, double start_angle_
     //convert start angle to radians
     double theta = start_angle_deg * (3.141592/180);
 
+    //simple elliptical geometry transformations
     double mu = G*1.0;
     double p = a * (1.0 - e*e);
     double r = p/(1.0 + e*cos(theta));
@@ -33,7 +34,7 @@ CelestialBody create_planet(std::string name, double radius, double start_angle_
 int main()
 {
     // Simulation parameters
-    double simulation_runtime=500.00;
+    double simulation_runtime=1500.00;
     double dt=0.005;
     double t=0;
 
@@ -174,7 +175,7 @@ int main()
             Vector3 r2 = mars_nominal_path.back();
 
             r2 += dr2;
-            
+
             Vector3 u = solve_lambert(earth_pos, r2, sun_pos, sun_mass, t, t+mission_duration, G);
             
             rocket.r = earth_pos;

@@ -21,15 +21,15 @@ from alive_progress import alive_bar
 np.random.seed(19680801)
 
 # animation duration parameters 
-frames_to_render=150000;
-frame_step=400;
+frames_to_render=1500000;
+frame_step=1000;
 frames_output_path = r'C:/Users/lenovo/Documents/Lamberts_BVP/orbit_frames/'
 
 # animation file parameters
 anim_title='Solar System'
 anim_extension='.mp4'
-anim_fps=21
-anim_dpi=150
+anim_fps=10
+anim_dpi=75
 anim_output_path = r'C:/Users/lenovo/Documents/Lamberts_BVP/'
 
 # frames
@@ -255,7 +255,7 @@ if __name__=='__main__':
 
         render_time_start=time.time()
         frames_to_render=min(frames_to_render, len(ss_data))
-        frames = range(1, frames_to_render+1, frame_step)
+        frames = range(1, frames_to_render, frame_step)
 
         # arguments to be passed to each worker task
         task_args=[(frame, np_ss_data, np_rocket_data, np_rocket_traj_data, celestial_bodies, bodies_colors, rocket_color) for frame in frames]
