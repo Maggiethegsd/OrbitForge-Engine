@@ -7,33 +7,45 @@
 #include "SolarData.h"
 #include "Vector3.h"
 
+using namespace SolarData;
+
+CelestialBody create_planet(std::string name, double display_size, bool draw) {
+    double mass = SolarData::get_mass_SM(name);
+    double a = SolarData::get_orbit_semi_major_AU(name);
+    double e = SolarData::get_orbit_ecc(name);
+
+    // Spawn exactly at periapsis: r = a(1-e)
+    Vector3 init_pos = Vector3(a * (1 - e), 0, 0);
+
+    // Initial velocity exactly at periapsis
+    double v = get_elliptical_orbit_u(1.0, a, G, e); 
+    Vector3 init_vel = Vector3(0, v, 0);
+
+    return CelestialBody(name, BodyType::PLANET, mass, display_size, 'o', init_pos, init_vel, draw);
+}
 
 int main()
 {
     // Simulation parameters
-    double simulation_runtime=750.00;
-    double dt=0.05;
+    double simulation_runtime=5000.00;
+    double dt=0.001;
     double t=0;
 
     // Mission parameters
     bool rocket_launched = false;
     int launch_day = 20;
+    double mission_duration = 100;
     double payload = 1500;
 
-    CelestialBody rocket("Artemis", payload, .5, '^', Vector3::zero, Vector3::zero, true);
-    std::vector<CelestialBody> solar_system = {
-        CelestialBody( "Sun", 1, 25, 'o', Vector3::zero, Vector3::zero, true), 
-        CelestialBody( "Mercury", to_solarmass(TrueSolarData::mass_mercury), 1.5, 'o', Vector3(to_au(TrueSolarData::orbit_radius_mercury),0,0), Vector3(0,-get_orbit_u(1, to_au(TrueSolarData::orbit_radius_mercury), G), 0), true),
-        CelestialBody( "Venus", to_solarmass(TrueSolarData::mass_venus), 2.8, 'o', Vector3(to_au(TrueSolarData::orbit_radius_venus),0,0), Vector3(0,-get_orbit_u(1, to_au(TrueSolarData::orbit_radius_venus), G), 0), true),
-        CelestialBody( "Earth", to_solarmass(TrueSolarData::mass_earth), 3, 'o', Vector3(1,0,0), Vector3(0,-get_orbit_u(1, 1, G), 0), true),
-        CelestialBody( "Mars", to_solarmass(TrueSolarData::mass_mars), 2.5, 'o', Vector3(to_au(TrueSolarData::orbit_radius_mars),0,0), Vector3(0,-get_orbit_u(1, to_au(TrueSolarData::orbit_radius_mars), G), 0), true),
-        CelestialBody( "Jupiter", to_solarmass(TrueSolarData::mass_jupiter), 6, 'o', Vector3(to_au(TrueSolarData::orbit_radius_jupiter),0,0), Vector3(0,-get_orbit_u(1, to_au(TrueSolarData::orbit_radius_jupiter), G), 0), false),
-        CelestialBody( "Saturn", to_solarmass(TrueSolarData::mass_saturn), 5, 'o', Vector3(to_au(TrueSolarData::orbit_radius_saturn),0,0), Vector3(0,-get_orbit_u(1, to_au(TrueSolarData::orbit_radius_saturn), G), 0), false)
-        //{ "Uranus", 'o', to_solarmass(TrueSolarData::mass_uranus), 4, {to_au(TrueSolarData::orbit_radius_uranus),0,0}, {0,-get_orbit_init_velocity(1, to_au(TrueSolarData::orbit_radius_neptune), G), 0}, {0,0,0} },
-        //{ "Neptune", 'o', to_solarmass(TrueSolarData::mass_neptune), 4.25, {to_au(TrueSolarData::orbit_radius_neptune),0,0}, {0,-get_orbit_init_velocity(1, to_au(TrueSolarData::orbit_radius_neptune), G), 0}, {0,0,0} }
-        //{ "Asteroid 1", 's', .45, {-200,50,0}, {5,0, 0}, {0,0,0} }, 
-        //{ "Asteroid 2", 's', .4, {200,-50,0}, {-10,0, 0}, {0,0,0} }, 
-        //{ "Rocket", '^', 0.0085, {-100,11,0}, {2,-5, 0}, {0,0,0} }
+    CelestialBody rocket("Artemis", BodyType::MANMADE, payload, .5, '^', Vector3::zero, Vector3::zero, true);
+
+        std::vector<CelestialBody> solar_system = {
+        CelestialBody("Sun", BodyType::STAR, 1, 10, 'o', Vector3::zero, Vector3::zero, true), 
+        create_planet("Mercury", 1.5, true),
+        create_planet("Venus", 2.8, true),
+        create_planet("Earth", 3.0, true),
+        create_planet("Mars", 2.5, true),
+        create_planet("Jupiter", 6.0, false)
     };
 
     std::ofstream solarsys_data_file ("C:/Users/lenovo/Documents/Lamberts_BVP/simulation_data/solar_system_data.csv");
@@ -45,25 +57,89 @@ int main()
     rocket_traj_file<<"Time,Traj_X,Traj_Y,Traj_Z\n";
 
     for (auto& body:solar_system) {
-        solarsys_data_file<<","<<body.name<<"_X,"<<body.name<<"_Y,"<<body.name<<"_Z,"<<body.name<<"_mass,"<<body.name<<"_radius,"<<body.name<<"_shape,"<<body.name<<"_draw";
+        if (body.body_type!=BodyType::STAR)
+            solarsys_data_file<<","<<body.name<<"_X,"<<body.name<<"_Y,"<<body.name<<"_Z,"<<body.name<<"_XfromE,"<<body.name<<"_YfromE,"<<body.name<<"_ZfromE,"<<body.name<<"_true_anomaly,"<<body.name<<"_eccentric_anomaly,"<<body.name<<"_time_of_periapsis,"<<body.name<<"_mass,"<<body.name<<"_radius,"<<body.name<<"_shape,"<<body.name<<"_draw";if (body.body_type!=BodyType::STAR);
+            
+        else
+            solarsys_data_file<<","<<body.name<<"_X,"<<body.name<<"_Y,"<<body.name<<"_Z,"<<body.name<<"_mass,"<<body.name<<"_radius,"<<body.name<<"_shape,"<<body.name<<"_draw";
     }
     solarsys_data_file<<"\n";
+    
+    std::cout<<"\nSimulating for " << simulation_runtime << " days";
 
+    bool is_first_tick = true;
     while (t<simulation_runtime)
     {
         simulation_step(solar_system, rocket, rocket_launched, dt);
+
         Vector3 earth_pos = Vector3::zero;
         Vector3 earth_vel = Vector3::zero;
 
-        std::cout<<"\nSimulated for Time " << t << " days";
+        Vector3 sun_pos = Vector3::zero;
+        double sun_mass = 0;
+        Vector3 sun_velocity=Vector3::zero;
+
         solarsys_data_file<<t;
         // update parameters in solar system data
         for (auto& body:solar_system) {
-            if (body.name=="Earth")
+            // set position and mass of sun
+            if (body.name=="Sun") {
+                sun_pos = body.r;
+                sun_mass = body.mass;
+                sun_velocity = body.v;
+            }
+            
+            // set position and velocity of earth
+            if (body.name=="Earth") {
                 earth_pos = body.r;
                 earth_vel = body.v;
+            }
 
-            solarsys_data_file<<","<<body.r.x<<","<<body.r.y<<","<<body.r.z<<","<<body.mass<<","<<body.radius<<","<<body.shape<<","<<body.draw;
+            body.orbit_eccentricity=SolarData::get_orbit_ecc(body.name);
+
+            // get geometric center (GC) of earth-sun elliptical orbit (sun is at focus)
+            double body_a = SolarData::get_orbit_semi_major_AU(body.name);
+            double body_e = SolarData::get_orbit_ecc(body.name);
+            Vector3 geometric_center = sun_pos - Vector3(body_a*body_e, 0, 0);
+            
+            // get relative position of planet w.r.t GC of planet-sun orbit
+            Vector3 r_rel = body.r - geometric_center;
+            
+            // true anomaly is calculated from focus, with planet coordinates relative to GC
+            double true_anomaly = get_true_anomaly(r_rel.x, r_rel.y, body_a, body_e);
+            // eccentric anomaly is calculated from geometric center, with planet coordinates relative to GC
+            double E = get_eccentric_anomaly(r_rel.x, r_rel.y, body_a, body_e);
+            
+            // convert eccentric anomaly of current orbit to cartesian coordinates (relative to GC)
+            Vector3 r_from_Ecc = eccentric_to_cartesian(E, body_a, body_e);
+
+            // r(E/GC) = r(E) - r(GC)
+            // r(E) = r(E/GC) + r(GC)
+            // convert to absolute coords
+            r_from_Ecc += geometric_center;
+
+            // check if periapsis
+            // distance of periapsis = a(1-e)
+
+            //std::cout<<"Dot b/w Velocity and Outward Vector for " << body.name << ": " << cur_v_dot << "\n";
+             //track periapsis time
+            if (body.first_tick_complete)
+            {
+                if (body.previous_true_anomaly > 6 && true_anomaly < 1.0)
+                {
+                    std::cout<<"\n\nPeriapsis recorded for " << body.name << " on day " << t << " with e="<<body.orbit_eccentricity;
+                    body.periapsis_time = t;
+                }
+            }
+            
+            body.previous_true_anomaly = true_anomaly;
+
+            if (body.body_type != BodyType::STAR)
+                solarsys_data_file<<","<<body.r.x<<","<<body.r.y<<","<<body.r.z<<","<<r_from_Ecc.x<<','<<r_from_Ecc.y<<','<<r_from_Ecc.z<<','<<true_anomaly<<','<<E<< ','<<body.periapsis_time << ',' << body.mass<<","<<body.radius<<","<<body.shape<<","<<body.draw;
+            else
+                solarsys_data_file<<","<<body.r.x<<","<<body.r.y<<","<<body.r.z<<","<<body.mass<<","<<body.radius<<","<<body.shape<<","<<body.draw;
+
+            body.first_tick_complete = true;
         }
         solarsys_data_file<<'\n';
         
@@ -71,8 +147,15 @@ int main()
         {
             rocket.r = earth_pos;
             rocket.v = earth_vel;
-            rocket.v+=Vector3(0.005, 0.005,0);
 
+            double M0 = 0;
+            double mars_e = SolarData::get_orbit_ecc("Mars");
+            double mars_a = SolarData::get_orbit_semi_major_AU("Mars");
+
+            double mu = G*sun_mass;
+            double n = sqrt(mu/(mars_a*mars_a*mars_a));
+
+            double t_p = 0;
             std::vector<Vector3> rocket_trajectory = calculate_trajectory(payload, rocket.r, rocket.v, solar_system, 100, dt);
             double traj_t = t;
             for (auto& path:rocket_trajectory) {
@@ -86,8 +169,11 @@ int main()
         if (rocket_launched)
             rocket_data_file<<t<<","<<rocket.r.x<<","<<rocket.r.y<<","<<rocket.r.z<<"\n";
 
+        is_first_tick = false;
         t+=dt;
     }
+    
+    std::cout<<"\nSimulation complete for " << simulation_runtime << " days.";
 
     solarsys_data_file.close();
     rocket_data_file.close();

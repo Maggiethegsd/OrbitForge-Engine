@@ -29,8 +29,12 @@ struct Vector3{
 
     static double dot(Vector3 v1, Vector3 v2);
     static Vector3 cross(Vector3 v1, Vector3 v2);
+    static double angle_acos(Vector3 v1, Vector3 v2);
     static double angle(Vector3 v1, Vector3 v2);
+
 };
 
 // global operator for scalar * vector
 Vector3 operator*(double scalar, const Vector3& rhs);
+double rad2deg(double angle_in_rad);
+double deg2rad(double angle_in_deg);

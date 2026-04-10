@@ -21,27 +21,59 @@ double Vector3::magnitude_squared() const
     return (x*x + y*y + z*z);
 }
 
+// normalized vector: preserves the direction but has unit magnitude
 Vector3 Vector3::normalized() const
 {
     return { x/magnitude(), y/magnitude(), z/magnitude()};
 }
 
-Vector3 cross (Vector3 v1, Vector3 v2)
+// cross product of two vectors by determinant form
+Vector3 Vector3::cross (Vector3 v1, Vector3 v2)
 {
     return Vector3((v1.y*v2.z) - (v1.z*v2.y),
                     (v1.z*v2.x) - (v1.x*v2.z),
                     (v1.x*v2.y) - (v1.y*v2.x));
 }
 
-double dot (Vector3 v1, Vector3 v2)
+// dot product of two vectors
+
+double Vector3::dot (Vector3 v1, Vector3 v2)
 {
     return (v1.x*v2.x, v1.y*v2.y, v1.z*v2.z);
 }
 
-
-double angle(Vector3 v1, Vector3 v2)
+// angle between two vectors in radians, v2 is the 'base' vector
+double Vector3::angle(Vector3 v1, Vector3 v2)
 {
-    return acos(dot(v1, v2)/(v1.magnitude() * v2.magnitude()));
+    if (v1==Vector3::zero || v2 == Vector3::zero)
+        return 0;
+
+    double theta = std::atan2(cross(v2, v1).z,  dot(v1, v2));
+    if (theta < 0)
+        theta += 2.0 * 3.141592;
+
+    return theta;
+}
+// angle between two vectors in radians, v2 is the 'base' vector. Uses dot product method.
+double Vector3::angle_acos(Vector3 v1, Vector3 v2)
+{
+    if (v1==Vector3::zero || v2 == Vector3::zero)
+        return 0;
+
+    double theta = acos( dot(v1, v2) / (v1.magnitude() * v2.magnitude()) );
+    return theta;
+}
+
+
+
+double rad2deg(double angle_in_rad)
+{
+    return (angle_in_rad/3.141592)*180;
+}
+
+double deg2rad(double angle_in_deg)
+{
+    return (angle_in_deg/180)*3.141592;
 }
 
 
