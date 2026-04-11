@@ -11,3 +11,4 @@ orbit_frames/*.png
 *.pdb
 *.ilk
 *.o
+simulation_data/rocket_data.csv

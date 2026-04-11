@@ -9,6 +9,13 @@
 
 using namespace SolarData;
 
+/* @brief Helper function to create and store planets/asteroids in the simulation
+   @param name Name of the planet
+   @param radius Rendering radius of the planet, for matplotlib
+   @param start_angle_deg Spawn angle of planet (with pericentre as base)
+   @param draw Whether to actually draw it in the render
+   @return The planet template
+*/
 CelestialBody create_planet(std::string name, double radius, double start_angle_deg, bool draw) {
     double mass = SolarData::get_mass_SM(name);
     double a = SolarData::get_orbit_semi_major_AU(name);
@@ -18,14 +25,19 @@ CelestialBody create_planet(std::string name, double radius, double start_angle_
     double theta = start_angle_deg * (3.141592/180);
 
     //simple elliptical geometry transformations
+
+    // gravitational parameter
     double mu = G*1.0;
+    // latus rectum
     double p = a * (1.0 - e*e);
     double r = p/(1.0 + e*cos(theta));
 
     // convert from polar coordinates and spawn
     Vector3 init_pos = Vector3(r*cos(theta), r*sin(theta), 0);
 
-    double h_p = sqrt(mu / p); // angular momentum term
+    // angular momentum
+    double h_p = sqrt(mu / p); 
+    // required initial velocity
     Vector3 u = Vector3(-h_p * sin(theta), h_p * (e + cos(theta)), 0);
 
     return CelestialBody(name, BodyType::PLANET, mass, radius, 'o', init_pos, u, draw);
@@ -40,6 +52,8 @@ int main()
 
     // Mission parameterWs
     bool rocket_launched = false;
+
+    // using launch day = 65 for smooth Hohmann transfer
     int launch_day = 65;
     double mission_duration = 259;
     double payload = 1500;
@@ -56,14 +70,17 @@ int main()
         create_planet("Jupiter", 6.0, 120.0, false)
     };
 
+    // start writing to CSV files
     std::ofstream solarsys_data_file ("C:/Users/lenovo/Documents/Lamberts_BVP/simulation_data/solar_system_data.csv");
     std::ofstream rocket_data_file ("C:/Users/lenovo/Documents/Lamberts_BVP/simulation_data/rocket_data.csv");
     std::ofstream rocket_traj_file ("C:/Users/lenovo/Documents/Lamberts_BVP/simulation_data/rocket_traj_data.csv");
 
+    // create base headers
     solarsys_data_file<<"Time";
     rocket_data_file<<"Time,Rocket_X,Rocket_Y,Rocket_Z\n";
     rocket_traj_file<<"Time,Traj_X,Traj_Y,Traj_Z\n";
 
+    // create headers for all bodies
     for (auto& body:solar_system) {
         if (body.body_type!=BodyType::STAR)
             solarsys_data_file<<","<<body.name<<"_X,"<<body.name<<"_Y,"<<body.name<<"_Z,"<<body.name<<"_XfromE,"<<body.name<<"_YfromE,"<<body.name<<"_ZfromE,"<<body.name<<"_true_anomaly,"<<body.name<<"_eccentric_anomaly,"<<body.name<<"_time_of_periapsis,"<<body.name<<"_mass,"<<body.name<<"_radius,"<<body.name<<"_shape,"<<body.name<<"_draw";if (body.body_type!=BodyType::STAR);
@@ -78,6 +95,7 @@ int main()
     bool is_first_tick = true;
     while (t<simulation_runtime)
     {
+        // simulation tick
         simulation_step(solar_system, rocket, rocket_launched, dt, false);
 
         Vector3 earth_pos = Vector3::zero;
@@ -135,8 +153,11 @@ int main()
             // check if periapsis
             // distance of periapsis = a(1-e)
 
+            // DEPRECATED METHOD OF TRACKING PERIAPSIS:
             //std::cout<<"Dot b/w Velocity and Outward Vector for " << body.name << ": " << cur_v_dot << "\n";
-             //track periapsis time
+            
+            
+            //track periapsis time
             if (body.first_tick_complete)
             {
                 if (body.previous_true_anomaly > 6 && true_anomaly < 1.0)
@@ -146,8 +167,10 @@ int main()
                 }
             }
             
+            // reset previous true anomaly before we move to next timestep
             body.previous_true_anomaly = true_anomaly;
 
+            // loop over all bodies, track their ephemeris data
             if (body.body_type != BodyType::STAR)
                 solarsys_data_file<<","<<body.r.x<<","<<body.r.y<<","<<body.r.z<<","<<r_from_Ecc.x<<','<<r_from_Ecc.y<<','<<r_from_Ecc.z<<','<<true_anomaly<<','<<E<< ','<<body.periapsis_time << ',' << body.mass<<","<<body.radius<<","<<body.shape<<","<<body.draw;
             else
@@ -157,8 +180,10 @@ int main()
         }
         solarsys_data_file<<'\n';
         
+        // when we reach launch day 
         if (t >= launch_day && !rocket_launched)
         {
+            // get current ephemeris of mars
             double mars_e = SolarData::get_orbit_ecc("Mars");
             double mars_a = SolarData::get_orbit_semi_major_AU("Mars");
 
@@ -168,44 +193,58 @@ int main()
             Vector3 mars_r_GC = mars_pos - GC_mars_orbit;
 
             double mars_EA = get_eccentric_anomaly(mars_r_GC.x, mars_r_GC.y, mars_a, mars_e);
-
             std::vector <Vector3> mars_nominal_path = get_nominal_path(sun_pos, sun_mass, mars_a, mars_e, mars_EA, mission_duration, dt);
-            //apply encke deviation
+            //apply encke deviation to mars path 
             Vector3 dr2 = calculate_encke_deviation("Mars", mars_nominal_path, dt, solar_system, sun_pos, sun_mass);
             Vector3 r2 = mars_nominal_path.back();
 
             r2 += dr2;
 
+            // solve lamberts problem for launch
             Vector3 u = solve_lambert(earth_pos, r2, sun_pos, sun_mass, t, t+mission_duration, G);
-            
             Vector3 v_guess = u+sun_velocity;
-            // newton raphson to get absolute best value
+
+            // newton raphson to get pinpoint accuracy value
             double delta = 1e-4;
             for (int iter=0; iter<4; iter++) {
+                // trajectory we are going to follow with the initial velocity we just calculated with lambert
                 Vector3 r_base = calculate_trajectory(payload, earth_pos, v_guess, solar_system, mission_duration, dt, false).back();
+                
+                // error between actual position of mars on arrival and position we are going to reach
                 Vector3 error = r2 - r_base;
 
+                // nudge individual components by delta amount
                 Vector3 r_dx = calculate_trajectory(payload, earth_pos, v_guess + Vector3(delta, 0, 0), solar_system, mission_duration, dt, false).back();
                 Vector3 r_dy = calculate_trajectory(payload, earth_pos, v_guess + Vector3(0, delta, 0), solar_system, mission_duration, dt, false).back();
 
+                // get jacobian of base position we are going to reach and nudge we made
+                // so get change relative of coordinates
                 double Jxx = (r_dx.x - r_base.x)/delta;
                 double Jyx = (r_dx.y - r_base.y)/delta;
                 double Jxy = (r_dy.x - r_base.x)/delta;
                 double Jyy = (r_dy.y - r_base.y)/delta;
-
+                
+                // adjust dvx and dvy
                 double det = (Jxx*Jyy) - (Jxy*Jyx);
                 double dvx = (Jyy*error.x - Jxy * error.y)/det;
                 double dvy = (Jxx*error.y - Jyx * error.x)/det;
 
+                // add those adjustments to our guess velocity
+                // loop over, take the new guess velocity and make it more accurate
+                // so on till we are satisfied (with given tolerance)
                 v_guess.x+=dvx;
                 v_guess.y+=dvy;
             }
             
+            // launch from earth duh
             rocket.r = earth_pos;
+            // inhibit earth's velocity ofc
             rocket.v = v_guess;
 
+            // calculate ghost trajectory with perfectly adjusted initial v
             std::vector<Vector3> rocket_trajectory = calculate_trajectory(payload, rocket.r, rocket.v, solar_system, mission_duration, dt, true);
 
+            // log trajectory data immediately for rendering
             double traj_t = t;
             for (auto& path:rocket_trajectory) {
                 rocket_traj_file << traj_t << ',' << path.x << ',' << path.y << ',' << path.z << '\n';
@@ -215,6 +254,7 @@ int main()
             rocket_launched=true;
         }
 
+        // log rocket ephemeris
         if (!rocket_launched)
             rocket_data_file<<t<<","<<earth_pos.x<<","<<earth_pos.y<<","<<earth_pos.z<<"\n";
         if (rocket_launched)
@@ -226,16 +266,21 @@ int main()
     
     std::cout<<"\nSimulation complete for " << simulation_runtime << " days.";
 
+    // close all data files to avoid leak
     solarsys_data_file.close();
     rocket_data_file.close();
     rocket_traj_file.close();
+
+    // ON HOLD: This script used to automatically contact python for the rendering part once the 
+    // simulation ran through. Faced some interpreter clashes so on hold for now.
+    /*
     std::this_thread::sleep_for(std::chrono::milliseconds(500));
 
     // contact python
 
-    //std::cout<<"\n\nContacting Python..."<<std::endl;
-    //system("conda run solar_system_viz_MP.py");
-
+    std::cout<<"\n\nContacting Python..."<<std::endl;
+    system("conda run solar_system_viz_MP.py");
+    */
 
     return 0;
 }

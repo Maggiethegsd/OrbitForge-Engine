@@ -7,6 +7,9 @@
 using namespace SolarData;
 
 namespace SolarData {
+    
+     /* @brief Ephemeris data of actual solar bodies in the universe
+    */
     TrueSolarBody::TrueSolarBody(std::string _name, double m, double r, double e) 
     : name(_name), body_mass(m), orbit_radius(r), orbit_ecc(e) {}; 
     std::vector<TrueSolarBody> TrueSolarBodies = {
@@ -20,7 +23,7 @@ namespace SolarData {
     {"Uranus",  8.68e25, 2.88e12, 0.0463},
     {"Neptune", 1.02e26, 4.50e12, 0.0097},
 };
-
+    
     double to_solarmass (double mass_in_kg)
     {
         return mass_in_kg/1.989e30;
