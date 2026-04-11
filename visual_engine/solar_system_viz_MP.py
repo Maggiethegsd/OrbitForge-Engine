@@ -21,15 +21,15 @@ from alive_progress import alive_bar
 np.random.seed(19680801)
 
 # animation duration parameters 
-frames_to_render=1500000;
-frame_step=1000;
+frames_to_render=75000
+frame_step=225
 frames_output_path = r'C:/Users/lenovo/Documents/Lamberts_BVP/orbit_frames/'
 
 # animation file parameters
 anim_title='Solar System'
 anim_extension='.mp4'
 anim_fps=10
-anim_dpi=75
+anim_dpi=150
 anim_output_path = r'C:/Users/lenovo/Documents/Lamberts_BVP/'
 
 # frames
@@ -39,10 +39,10 @@ lock_frame_to_pgb=True
 space_bounds_x=2.5
 space_bounds_y=2.5
 
-theme_font_family = 'Segoe UI'
+theme_font_family = 'monospace'
 theme_font_color = 'white'
 theme_font_weight = 'normal'
-theme_font_size = 6
+theme_font_size = 12
 
 plt.style.use('dark_background')
 plt.rcParams.update( {
@@ -63,27 +63,36 @@ def worker_task():
     global worker_assigned_axis, worker_assigned_fig
     
     # individual figures and axes
-    worker_assigned_fig = plt.figure()
-    worker_assigned_fig.tight_layout()
+    worker_assigned_fig = plt.figure(figsize=(8, 8), facecolor="#000000")
+    worker_assigned_fig.tight_layout(pad = 3.0)
+
     worker_assigned_axis = worker_assigned_fig.add_subplot()
+    worker_assigned_axis.set_facecolor("#000000")
 
 def style_worker_axes(ax):
     # set parameters and visuals
-    ax.set_xlabel('X (AU)')
-    ax.set_ylabel('Y (AU)')
+    ax.set_xlabel('X (AU)', color='#888888', fontsize=10, labelpad=10, fontfamily='monospace')
+    ax.set_ylabel('Y (AU)', color='#888888', fontsize=10, labelpad=10, fontfamily='monospace')
 
     ax.spines['top'].set_visible(False)
     ax.spines['right'].set_visible(False)
 
-    # Dim the bottom and left borders
-    ax.spines['bottom'].set_color('#444444')
-    ax.spines['left'].set_color('#444444')
+    ax.spines['bottom'].set_color("#888888") 
+    ax.spines['bottom'].set_linewidth(1.5)
+    ax.spines['left'].set_color("#888888")
+    ax.spines['left'].set_linewidth(1.5)
     
-    # Make tick marks subtle
-    ax.tick_params(colors='#888888', labelsize=10)
+    # Enable minor ticks for the radar grid
+    ax.minorticks_on()
+
+    # Enhance Ticks: Make them point inwards like a targeting scope
+    ax.tick_params(axis='both', which='major', colors="#888888", labelsize=8,
+                   direction='in', length=7, width=1.5, pad=8)
+    ax.tick_params(axis='both', which='minor', colors="#888888",
+                   direction='in', length=4, width=1)
     
-    # Push the grid to the absolute background (zorder=0) and make it very faint
-    ax.grid(True, color="#8DBBFF92", linestyle='-', linewidth=0.25, zorder=0)
+    ax.grid(True, which='major', color="#8DBBFF40", linestyle='-', linewidth=0.4,  zorder=0)
+    ax.grid(True, which='minor', color="#8DBBFF1A", linestyle=':', linewidth=0.2,  zorder=0)
 
 # frame rendering task: what each worker does as to 'render' each frame
 def render_frame_task(args):
@@ -95,11 +104,9 @@ def render_frame_task(args):
         # set parameters and visuals 
         pgb_x = ss_data['Sun_X'][frame]
         pgb_y = ss_data['Sun_Y'][frame]
-
         frame_time = ss_data['Time'][frame]
         
         worker_assigned_axis.clear()
-
         style_worker_axes(worker_assigned_axis)
 
         if lock_frame_to_pgb:
@@ -109,64 +116,89 @@ def render_frame_task(args):
             worker_assigned_axis.set_xlim(-space_bounds_x, space_bounds_x)
             worker_assigned_axis.set_ylim(-space_bounds_y, space_bounds_y)
 
-
-        worker_assigned_axis.set_title(f'N-Body Orbital Simulation\nt: {frame_time:06.2f} days')
+        worker_assigned_axis.set_title(f'N-Body Orbital Simulation', loc='center', color='white', pad=15)
         worker_assigned_axis.grid(True, linestyle='--', alpha=0.4)
+
+        mission_text = (
+            r'$\mathbf{MISSION \ STATUS}$' + '\n' +
+            f'T+ {frame_time:06.2f} Days\n' +
+            f'Transfer: 259-Day Hohman  '
+        )
+        worker_assigned_axis.text(0.98, 0.97, mission_text, transform=worker_assigned_axis.transAxes,
+                                  fontsize=9, verticalalignment='top', horizontalalignment='right',
+                                  bbox=dict(facecolor='black', alpha=0.6, edgecolor='#444444', boxstyle='round,pad=0.5'),
+                                  fontfamily='monospace')
 
         for body in celestial_bodies:
             # trail data upto this point
             if ss_data[f'{body}_draw'][1]==True:
-                trail_start = max(0, frame-1000)
+                #trail_start = max(0, frame-1000)
                 trail_x = ss_data[f'{body}_X'][0:frame+1]
                 trail_y = ss_data[f'{body}_Y'][0:frame+1]
                 worker_assigned_axis.plot(trail_x, trail_y, color=bodies_colors[body], ls='--', linewidth=1, alpha=0.6)
 
                 # plot current point with circle (scatterplot)
-                current_x=ss_data[f'{body}_X'][frame]
-                current_y=ss_data[f'{body}_Y'][frame]
+                current_x = ss_data[f'{body}_X'][frame]
+                current_y = ss_data[f'{body}_Y'][frame]
     
-                body_shape=ss_data[f'{body}_shape'][frame]  
-                body_radius=ss_data[f'{body}_radius'][frame]
+                body_shape = ss_data[f'{body}_shape'][frame]  
+                body_radius = ss_data[f'{body}_radius'][frame]
 
                 worker_assigned_axis.plot(current_x, current_y, label=body, marker=body_shape, ls='', color=bodies_colors[body], ms=body_radius)
 
-                if body=='Earth':
-                    true_anomaly=np.rad2deg(ss_data['Earth_true_anomaly'][frame])
-                    ecc_anomaly=np.rad2deg(ss_data['Earth_eccentric_anomaly'][frame])
 
+                if body == 'Earth':
+                    true_anomaly = np.rad2deg(ss_data['Earth_true_anomaly'][frame])
+                    ecc_anomaly = np.rad2deg(ss_data['Earth_eccentric_anomaly'][frame])
                     x_E = ss_data[f'Earth_XfromE'][frame]
                     y_E = ss_data[f'Earth_YfromE'][frame]
 
-                    worker_assigned_axis.text(-2.25, 2, rf'Earth True Anomaly ($\theta_1$): ${true_anomaly:.2f}\degree$', bbox=dict(facecolor='white', alpha=0.1))
-                    worker_assigned_axis.text(-2.25, 1.5, rf'Earth Eccentric Anomaly ($\phi_1$): ${ecc_anomaly:.2f}\degree$', bbox=dict(facecolor='white', alpha=0.1))
-                    worker_assigned_axis.text(-2.25, 1.0, rf'Earth X: ${current_x}$', bbox=dict(facecolor='white', alpha=0.1))
-                    worker_assigned_axis.text(-2.25, 0.5, rf'Earth Y: ${current_y}$', bbox=dict(facecolor='white', alpha=0.1))
-                    worker_assigned_axis.text(-2.25, 0, rf'Earth X_E: ${x_E}$', bbox=dict(facecolor='white', alpha=0.1))
-                    worker_assigned_axis.text(-2.25, -.5, rf'Earth X_E: ${y_E}$', bbox=dict(facecolor='white', alpha=0.1))
+                    earth_text = (
+                        r'$\mathbf{EARTH \ TELEMETRY}$' + '\n' +
+                        rf'True Anom ($\theta_1$): ${true_anomaly:06.2f}^\circ$' + '\n' +
+                        rf'Ecc  Anom ($\phi_1$): ${ecc_anomaly:06.2f}^\circ$' + '\n' +
+                        rf'Abs X: {current_x:+07.4f}' + '\n' +
+                        rf'Abs Y: {current_y:+07.4f}' + '\n' +
+                        rf'Rel X: {x_E:+07.4f}' + '\n' +
+                        rf'Rel Y: {y_E:+07.4f}'
+                    )
+                    worker_assigned_axis.text(0.03, 0.97, earth_text, transform=worker_assigned_axis.transAxes,
+                                              fontsize=9, verticalalignment='top', horizontalalignment='left',
+                                              bbox=dict(facecolor='black', alpha=0.6, edgecolor='#444444', boxstyle='round,pad=0.5'),
+                                              fontfamily='monospace')
 
-                if body=='Mars':
-                    true_anomaly=np.rad2deg(ss_data['Mars_true_anomaly'][frame])
-                    ecc_anomaly=np.rad2deg(ss_data['Mars_eccentric_anomaly'][frame])
+                if body == 'Mars':
+                    true_anomaly = np.rad2deg(ss_data['Mars_true_anomaly'][frame])
+                    ecc_anomaly = np.rad2deg(ss_data['Mars_eccentric_anomaly'][frame])
 
-                    worker_assigned_axis.text(-2.25, -1, rf'Mars True Anomaly ($\theta_2$): ${true_anomaly:.2f}\degree$', bbox=dict(facecolor='white', alpha=0.1))
-                    worker_assigned_axis.text(-2.25, -1.5, rf'Mars Eccentric Anomaly ($\phi_2$): ${ecc_anomaly:.2f}\degree$', bbox=dict(facecolor='white', alpha=0.1))
+                    mars_text = (
+                        r'$\mathbf{MARS \ TELEMETRY}$' + '\n' +
+                        rf'True Anom ($\theta_2$): ${true_anomaly:06.2f}^\circ$' + '\n' +
+                        rf'Ecc  Anom ($\phi_2$): ${ecc_anomaly:06.2f}^\circ$' + '\n' +
+                        rf'Abs X: {current_x:+07.4f}' + '\n' +
+                        rf'Abs Y: {current_y:+07.4f}'
+                    )
+                    worker_assigned_axis.text(0.03, 0.03, mars_text, transform=worker_assigned_axis.transAxes,
+                                              fontsize=9, verticalalignment='bottom', horizontalalignment='left',
+                                              bbox=dict(facecolor='black', alpha=0.6, edgecolor='#444444', boxstyle='round,pad=0.5'),
+                                              fontfamily='monospace')
 
-        if (frame_time > 20):
+        if (frame_time >= 65.0):
             trail_x = rocket_data['Rocket_X'][0:frame+1]
             trail_y = rocket_data['Rocket_Y'][0:frame+1]
             worker_assigned_axis.plot(trail_x, trail_y, color=rocket_color, ls='dashdot', linewidth=1, alpha=0.8)
 
             current_x = rocket_data['Rocket_X'][frame]
             current_y = rocket_data['Rocket_Y'][frame]
-            worker_assigned_axis.plot(current_x, current_y, label='Rocket', marker='^', ls='', color=rocket_color, ms=1)
+            worker_assigned_axis.plot(current_x, current_y, label='Rocket', marker='^', ls='', color='white', ms=4)
 
             traj_x = rocket_traj_data['Traj_X']
             traj_y = rocket_traj_data['Traj_Y']
-            worker_assigned_axis.plot(traj_x, traj_y, label='Trajectory', ls='--', color='white', lw=.1, alpha=1)
+            worker_assigned_axis.plot(traj_x, traj_y, label='Targeting Solution', ls='--', color='white', lw=.4, alpha=0.6)
 
-
+        # Draw the Legend
         if not worker_assigned_axis.get_legend():
-            worker_assigned_axis.legend(fontsize='medium', markerscale=0.5, loc='upper right', framealpha=0.5, edgecolor='white', labelcolor='white')
+            worker_assigned_axis.legend(fontsize=9, markerscale=0.8, loc='center right', framealpha=0.2, edgecolor='#444444', labelcolor='white')
 
         # save figure to disk 
         worker_assigned_fig.savefig(frames_output_path+fr'/frame{frame:04d}.png', 

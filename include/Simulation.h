@@ -19,4 +19,4 @@ Vector3 calculate_gravitational_force(const CelestialBody& body, const Celestial
 std::vector<Vector3> get_nominal_path(Vector3 pgb_r, double pgb_mass, double a, double e, double E_initial, double time_of_flight, double dt);
 Vector3 calculate_encke_deviation(std::string target_name, std::vector<Vector3>& nominal_path, double dt, const std::vector<CelestialBody>& affectors, Vector3 pgb_r, double pgb_mass);
 Vector3 solve_lambert(Vector3 ri, Vector3 rf, Vector3 pgb_r, double M, double t1, double t2, double G);
-std::vector <Vector3> calculate_trajectory(double body_mass, Vector3 init_pos, Vector3 init_vel, std::vector<CelestialBody> affectors, double prediction_steps, double dt, bool only_affected_by_pgb);
+std::vector<Vector3> calculate_trajectory(double body_mass, Vector3 init_pos, Vector3 init_vel, const std::vector<CelestialBody>& affectors, double prediction_steps, double dt, bool only_affected_by_pgb);

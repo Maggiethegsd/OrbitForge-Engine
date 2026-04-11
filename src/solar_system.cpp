@@ -38,9 +38,9 @@ int main()
     double dt=0.005;
     double t=0;
 
-    // Mission parameters
+    // Mission parameterWs
     bool rocket_launched = false;
-    int launch_day = 50;
+    int launch_day = 65;
     double mission_duration = 259;
     double payload = 1500;
     payload = to_solarmass(payload);
@@ -178,8 +178,31 @@ int main()
 
             Vector3 u = solve_lambert(earth_pos, r2, sun_pos, sun_mass, t, t+mission_duration, G);
             
+            Vector3 v_guess = u+sun_velocity;
+            // newton raphson to get absolute best value
+            double delta = 1e-4;
+            for (int iter=0; iter<4; iter++) {
+                Vector3 r_base = calculate_trajectory(payload, earth_pos, v_guess, solar_system, mission_duration, dt, false).back();
+                Vector3 error = r2 - r_base;
+
+                Vector3 r_dx = calculate_trajectory(payload, earth_pos, v_guess + Vector3(delta, 0, 0), solar_system, mission_duration, dt, false).back();
+                Vector3 r_dy = calculate_trajectory(payload, earth_pos, v_guess + Vector3(0, delta, 0), solar_system, mission_duration, dt, false).back();
+
+                double Jxx = (r_dx.x - r_base.x)/delta;
+                double Jyx = (r_dx.y - r_base.y)/delta;
+                double Jxy = (r_dy.x - r_base.x)/delta;
+                double Jyy = (r_dy.y - r_base.y)/delta;
+
+                double det = (Jxx*Jyy) - (Jxy*Jyx);
+                double dvx = (Jyy*error.x - Jxy * error.y)/det;
+                double dvy = (Jxx*error.y - Jyx * error.x)/det;
+
+                v_guess.x+=dvx;
+                v_guess.y+=dvy;
+            }
+            
             rocket.r = earth_pos;
-            rocket.v = u+sun_velocity;
+            rocket.v = v_guess;
 
             std::vector<Vector3> rocket_trajectory = calculate_trajectory(payload, rocket.r, rocket.v, solar_system, mission_duration, dt, true);
 

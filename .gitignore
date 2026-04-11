@@ -2,4 +2,7 @@ logs/
 *.logs
 *.vscode
 __pycache__/
-orbit_frames/
+orbit_frames/*.png
+*.exe
+*.pdb
+*.ilk

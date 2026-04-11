@@ -113,26 +113,44 @@
 
 
     // calculate future trajectory of body with given mass, initial position, velocity and list of all affectors in the universe
-    std::vector<Vector3> calculate_trajectory(double body_mass, Vector3 init_pos, Vector3 init_vel, std::vector<CelestialBody> affectors, double prediction_steps, double dt, bool only_affected_by_pgb)
+    std::vector<Vector3> calculate_trajectory(double body_mass, Vector3 init_pos, Vector3 init_vel, const std::vector<CelestialBody>& affectors, double prediction_steps, double dt, bool only_affected_by_pgb)
     {
         CelestialBody body_ghost("ghost", BodyType::PLANET, body_mass, 1, 'o', init_pos, init_vel, false);
-        std::vector<Vector3> trajectory;
+        std::vector<Vector3> trajectory;// Reserve memory: mission_duration / dt
+        trajectory.reserve(static_cast<size_t>(prediction_steps / dt) + 1);
+
+        // Find the Sun for Kepler math anchoring
+        Vector3 pgb_r = Vector3::zero; 
+        double pgb_mass = 1.0;
+        for(const auto& b : affectors) if(b.name=="Sun") { pgb_r=b.r; pgb_mass=b.mass; break; }
 
         for (double t=0; t<prediction_steps; t+=dt)
         {   
             body_ghost.r += body_ghost.v * 0.5 * dt;
+            
+            Vector3 total_acc = Vector3::zero;
 
-            body_ghost.force = Vector3::zero;
             for (auto& body : affectors) {
-                if (only_affected_by_pgb && body.name!="Sun") 
-                    continue;
-                body_ghost.force += calculate_gravitational_force(body_ghost, body);
+                if (only_affected_by_pgb && body.name!="Sun") continue;
+                if (body.name == "Earth") continue; // Prevent infinite gravity explosion on launchpad!
+
+                Vector3 current_pos = body.r;
+                if (body.name != "Sun") {
+                    // UNFREEZE THE PLANETS: Calculate exactly where they are on day 't'
+                    double b_a = SolarData::get_orbit_semi_major_AU(body.name);
+                    double b_e = SolarData::get_orbit_ecc(body.name);
+                    Vector3 b_GC = pgb_r - Vector3(b_a * b_e, 0, 0);
+                    Vector3 b_r_GC = body.r - b_GC;
+                    double b_EA = get_eccentric_anomaly(b_r_GC.x, b_r_GC.y, b_a, b_e);
+                    current_pos = get_future_position_theoretical(pgb_r, pgb_mass, G, t, b_a, b_e, b_EA);
+                }
+                
+                total_acc += calculate_raw_acceleration(body_ghost.r, current_pos, body.mass);
             }
             
-            Vector3 acc = body_ghost.force / body_mass;
-            body_ghost.v += acc * dt;
-            
+            body_ghost.v += total_acc * dt;
             body_ghost.r += body_ghost.v * 0.5 * dt;
+            
             trajectory.push_back(body_ghost.r);
         }
         return trajectory;
@@ -184,8 +202,11 @@
                 double b_EA = get_eccentric_anomaly(b_r_GC.x, b_r_GC.y, b_a, b_e);
 
                 Vector3 body_r_at_t = get_future_position_theoretical(pgb_r, pgb_mass, G, t, b_a, b_e, b_EA);
+
+                Vector3 acc_on_target = calculate_raw_acceleration(r_true, body_r_at_t, body.mass);
+                Vector3 acc_on_pgb = calculate_raw_acceleration(pgb_r, body_r_at_t, body.mass);
                 
-                acc_perturb += calculate_raw_acceleration(r_true, body_r_at_t, body.mass);
+                acc_perturb += (acc_on_target - acc_on_pgb);
             }
 
             Vector3 d_acc = d_acc_sun + acc_perturb;
@@ -345,8 +366,8 @@
                 celestial_bodies[i].force += calculate_gravitational_force(celestial_bodies[i], celestial_bodies[j]);
             }
             
-            if (rocket_launched && celestial_bodies[i].name=="Sun")
-                    rocket.force+=calculate_gravitational_force(rocket, celestial_bodies[i]);
+            if (rocket_launched && (celestial_bodies[i].name=="Sun" || celestial_bodies[i].name=="Jupiter"))
+                rocket.force+=calculate_gravitational_force(rocket, celestial_bodies[i]);
         }
 
         for (auto& body:celestial_bodies)
