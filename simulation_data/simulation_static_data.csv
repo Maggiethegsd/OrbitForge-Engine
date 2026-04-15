@@ -1,0 +1,8 @@
+body_name,body_mass,body_radius,body_shape,body_draw
+Sun,1,10,o,1
+Mercury,1.65913e-07,1.5,o,1
+Venus,2.44847e-06,2.8,o,1
+Earth,3.00151e-06,3,o,1
+Mars,3.22775e-07,2.5,o,1
+Jupiter,0.000955254,6,o,1
+Jarvis-5,7.54148e-28,3.5,^,1

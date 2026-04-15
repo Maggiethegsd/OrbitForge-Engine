@@ -12,311 +12,241 @@ import sequential_renderer
 import multiprocessing
 import time
 import os
+import glob
 
 # beautification modules
 from console_colors import bcolors
 from alive_progress import alive_bar
 
-# random file seed for reproducibility
 np.random.seed(19680801)
 
-# animation duration parameters 
-frames_to_render=75000
-frame_step=225
-frames_output_path = r'C:/Users/lenovo/Documents/Lamberts_BVP/orbit_frames/'
+# --- CONFIGURATION ---
+frames_to_render = 20000000
+frame_step = 20  # Reduced step for smoother visualization, adjust as needed
+data_dir = r'C:/Users/lenovo/Documents/OrbitForge-Engine/simulation_data/'
+frames_output_path = r'C:/Users/lenovo/Documents/OrbitForge-Engine/orbit_frames/'
+anim_output_path = r'C:/Users/lenovo/Documents/OrbitForge-Engine/'
 
-# animation file parameters
-anim_title='Solar System'
-anim_extension='.mp4'
-anim_fps=10
-anim_dpi=150
-anim_output_path = r'C:/Users/lenovo/Documents/Lamberts_BVP/'
+anim_title = 'Mission_Playback'
+anim_extension = '.mp4'
+anim_fps = 30
+anim_dpi = 150
 
-# frames
-
-lock_frame_to_pgb=True
-
-space_bounds_x=2.5
-space_bounds_y=2.5
+lock_frame_to_pgb = True
+space_bounds_x = 2 # Adjusted for inner solar system (AU)
+space_bounds_y = 2
 
 theme_font_family = 'monospace'
 theme_font_color = 'white'
 theme_font_weight = 'normal'
-theme_font_size = 12
+theme_font_size = 15
 
 plt.style.use('dark_background')
-plt.rcParams.update( {
-    'font.family':theme_font_family,
-    'font.size':theme_font_size,
-    'font.weight':theme_font_weight,
-    'text.color':theme_font_color,
-    'axes.labelcolor':theme_font_color,
-    'xtick.color':theme_font_color,
-    'ytick.color':theme_font_color
+plt.rcParams.update({
+    'font.family': theme_font_family,
+    'font.size': theme_font_size,
+    'font.weight': theme_font_weight,
+    'text.color': theme_font_color,
+    'axes.labelcolor': theme_font_color,
+    'xtick.color': theme_font_color,
+    'ytick.color': theme_font_color
 })
-#plt.rcParams['text.usetex']=True
 
-# worker task: what each worker does beforehand
+# Globals for workers
 worker_assigned_axis = None
 worker_assigned_fig = None
+
 def worker_task():
     global worker_assigned_axis, worker_assigned_fig
-    
-    # individual figures and axes
-    worker_assigned_fig = plt.figure(figsize=(8, 8), facecolor="#000000")
-    worker_assigned_fig.tight_layout(pad = 3.0)
-
+    worker_assigned_fig = plt.figure(figsize=(10, 10), facecolor="#000000")
+    worker_assigned_fig.tight_layout(pad=3.0)
     worker_assigned_axis = worker_assigned_fig.add_subplot()
     worker_assigned_axis.set_facecolor("#000000")
 
 def style_worker_axes(ax):
-    # set parameters and visuals
-    ax.set_xlabel('X (AU)', color='#888888', fontsize=10, labelpad=10, fontfamily='monospace')
-    ax.set_ylabel('Y (AU)', color='#888888', fontsize=10, labelpad=10, fontfamily='monospace')
-
+    ax.set_xlabel('X (AU)', color='#888888', fontsize=10, labelpad=10)
+    ax.set_ylabel('Y (AU)', color='#888888', fontsize=10, labelpad=10)
     ax.spines['top'].set_visible(False)
     ax.spines['right'].set_visible(False)
-
     ax.spines['bottom'].set_color("#888888") 
     ax.spines['bottom'].set_linewidth(1.5)
     ax.spines['left'].set_color("#888888")
     ax.spines['left'].set_linewidth(1.5)
-    
-    # Enable minor ticks for the radar grid
     ax.minorticks_on()
+    ax.tick_params(axis='both', which='major', colors="#888888", labelsize=8, direction='in', length=7, width=1.5, pad=8)
+    ax.tick_params(axis='both', which='minor', colors="#888888", direction='in', length=4, width=1)
+    ax.grid(True, which='major', color="#8DBBFF1A", linestyle='-', linewidth=0.2, zorder=0)
+    ax.grid(True, which='minor', color="#8DBBFF1A", linestyle=':', linewidth=0.2, zorder=0)
 
-    # Enhance Ticks: Make them point inwards like a targeting scope
-    ax.tick_params(axis='both', which='major', colors="#888888", labelsize=8,
-                   direction='in', length=7, width=1.5, pad=8)
-    ax.tick_params(axis='both', which='minor', colors="#888888",
-                   direction='in', length=4, width=1)
-    
-    ax.grid(True, which='major', color="#8DBBFF40", linestyle='-', linewidth=0.4,  zorder=0)
-    ax.grid(True, which='minor', color="#8DBBFF1A", linestyle=':', linewidth=0.2,  zorder=0)
-
-# frame rendering task: what each worker does as to 'render' each frame
 def render_frame_task(args):
     global worker_assigned_fig, worker_assigned_axis
-    # get frame number, simulation data and other things via multiprocessing argument
-    frame, ss_data, rocket_data, rocket_traj_data, celestial_bodies, bodies_colors, rocket_color = args
+    frame, dyn_data, static_data, traj_data, manifest, bodies, colors = args
 
     try:
-        # set parameters and visuals 
-        pgb_x = ss_data['Sun_X'][frame]
-        pgb_y = ss_data['Sun_Y'][frame]
-        frame_time = ss_data['Time'][frame]
+        frame_time = dyn_data['Time'][frame]
+        pgb_x = dyn_data['Sun_X'][frame]
+        pgb_y = dyn_data['Sun_Y'][frame]
         
         worker_assigned_axis.clear()
         style_worker_axes(worker_assigned_axis)
 
         if lock_frame_to_pgb:
-            worker_assigned_axis.set_xlim(pgb_x-space_bounds_x, pgb_x+space_bounds_x)
-            worker_assigned_axis.set_ylim(pgb_y-space_bounds_y, pgb_y+space_bounds_y)
+            worker_assigned_axis.set_xlim(pgb_x - space_bounds_x, pgb_x + space_bounds_x)
+            worker_assigned_axis.set_ylim(pgb_y - space_bounds_y, pgb_y + space_bounds_y)
         else:
             worker_assigned_axis.set_xlim(-space_bounds_x, space_bounds_x)
             worker_assigned_axis.set_ylim(-space_bounds_y, space_bounds_y)
 
-        worker_assigned_axis.set_title(f'N-Body Orbital Simulation', loc='center', color='white', pad=15)
-        worker_assigned_axis.grid(True, linestyle='--', alpha=0.4)
+        worker_assigned_axis.set_title(f'Mission: {manifest["Mission_ID"]}', loc='center', color='white', pad=15, fontweight='bold')
 
         mission_text = (
-            r'$\mathbf{MISSION \ STATUS}$' + '\n' +
+            r'$\mathbf{MISSION \ OVERVIEW}$' + '\n' +
             f'T+ {frame_time:06.2f} Days\n' +
-            f'Transfer: 259-Day Hohman  '
+            f'Origin: {manifest["Origin"]}\n' +
+            f'Target: {manifest["Target"]}\n' +
+            f'Launch Day: {manifest["Launch_Day"]}\n' +
+            fr'Phase Angle $(\phi): {manifest["Launch_Phase_Angle"]:.2f}\degree$'
         )
         worker_assigned_axis.text(0.98, 0.97, mission_text, transform=worker_assigned_axis.transAxes,
                                   fontsize=9, verticalalignment='top', horizontalalignment='right',
-                                  bbox=dict(facecolor='black', alpha=0.6, edgecolor='#444444', boxstyle='round,pad=0.5'),
-                                  fontfamily='monospace')
+                                  bbox=dict(facecolor='black', alpha=0.7, edgecolor='#444444', boxstyle='round,pad=0.5'))
 
-        for body in celestial_bodies:
-            # trail data upto this point
-            if ss_data[f'{body}_draw'][1]==True:
-                #trail_start = max(0, frame-1000)
-                trail_x = ss_data[f'{body}_X'][0:frame+1]
-                trail_y = ss_data[f'{body}_Y'][0:frame+1]
-                worker_assigned_axis.plot(trail_x, trail_y, color=bodies_colors[body], ls='--', linewidth=1, alpha=0.6)
+        ship_id = manifest['Ship_ID']
+        launch_day = manifest['Launch_Day']
 
-                # plot current point with circle (scatterplot)
-                current_x = ss_data[f'{body}_X'][frame]
-                current_y = ss_data[f'{body}_Y'][frame]
-    
-                body_shape = ss_data[f'{body}_shape'][frame]  
-                body_radius = ss_data[f'{body}_radius'][frame]
+        for body in bodies:
+            if static_data[body]['draw'] == 0: continue
+            
+            # Hide ship before launch
+            if body == ship_id and frame_time < launch_day: continue
+            current_x = dyn_data[f'{body}_X'][frame]
+            current_y = dyn_data[f'{body}_Y'][frame]
+            shape = static_data[body]['shape']
+            radius = static_data[body]['radius']
+            color = colors[body]
 
-                worker_assigned_axis.plot(current_x, current_y, label=body, marker=body_shape, ls='', color=bodies_colors[body], ms=body_radius)
+            # trail logic
+            if body == ship_id:
+                # find index where time == launch day
+                launch_idx = np.searchsorted(dyn_data['Time'], launch_day)
+                trail_x = dyn_data[f'{body}_X'][launch_idx:frame+1]
+                trail_y = dyn_data[f'{body}_Y'][launch_idx:frame+1]
+                worker_assigned_axis.plot(trail_x, trail_y, color=color, ls='-', linewidth=1.5, alpha=0.9)
+            else:
+                trail_x = dyn_data[f'{body}_X'][0:frame+1]
+                trail_y = dyn_data[f'{body}_Y'][0:frame+1]
+                worker_assigned_axis.plot(trail_x, trail_y, color=color, ls='--', linewidth=1, alpha=0.5)
 
+            # current body positiojn
+            worker_assigned_axis.plot(current_x, current_y, label=body, marker=shape, ls='', color=color, ms=radius)
 
-                if body == 'Earth':
-                    true_anomaly = np.rad2deg(ss_data['Earth_true_anomaly'][frame])
-                    ecc_anomaly = np.rad2deg(ss_data['Earth_eccentric_anomaly'][frame])
-                    x_E = ss_data[f'Earth_XfromE'][frame]
-                    y_E = ss_data[f'Earth_YfromE'][frame]
+            # telemetry HUD
+            if body in [manifest['Origin'], manifest['Target']]:
+                true_anom = np.rad2deg(dyn_data[f'{body}_true_anomaly'][frame])
+                ecc_anom = np.rad2deg(dyn_data[f'{body}_eccentric_anomaly'][frame])
+                
+                hud_text = (
+                    fr'$\mathbf{{{body.upper()} \ TELEMETRY}}$' + '\n' +
+                    rf'True Anom ($\theta$): ${true_anom:06.2f}^\circ$' + '\n' +
+                    rf'Ecc  Anom ($\phi$): ${ecc_anom:06.2f}^\circ$'
+                )
+                
+                # origin HUD on Left, target HUD on Bottom
+                loc = (0.03, 0.97) if body == manifest['Origin'] else (0.03, 0.03)
+                va = 'top' if body == manifest['Origin'] else 'bottom'
+                
+                worker_assigned_axis.text(loc[0], loc[1], hud_text, transform=worker_assigned_axis.transAxes,
+                                          fontsize=9, verticalalignment=va, horizontalalignment='left',
+                                          bbox=dict(facecolor='black', alpha=0.6, edgecolor=color, boxstyle='round,pad=0.5'))
 
-                    earth_text = (
-                        r'$\mathbf{EARTH \ TELEMETRY}$' + '\n' +
-                        rf'True Anom ($\theta_1$): ${true_anomaly:06.2f}^\circ$' + '\n' +
-                        rf'Ecc  Anom ($\phi_1$): ${ecc_anomaly:06.2f}^\circ$' + '\n' +
-                        rf'Abs X: {current_x:+07.4f}' + '\n' +
-                        rf'Abs Y: {current_y:+07.4f}' + '\n' +
-                        rf'Rel X: {x_E:+07.4f}' + '\n' +
-                        rf'Rel Y: {y_E:+07.4f}'
-                    )
-                    worker_assigned_axis.text(0.03, 0.97, earth_text, transform=worker_assigned_axis.transAxes,
-                                              fontsize=9, verticalalignment='top', horizontalalignment='left',
-                                              bbox=dict(facecolor='black', alpha=0.6, edgecolor='#444444', boxstyle='round,pad=0.5'),
-                                              fontfamily='monospace')
+        # ghost trajectory for rocket
+        if frame_time >= launch_day:
+            traj_x = traj_data['Traj_X'][:]
+            traj_y = traj_data['Traj_Y'][:]
+            worker_assigned_axis.plot(traj_x, traj_y, label='Targeting Solution', ls=':', color=colors[ship_id], lw=1.2, alpha=0.8)
 
-                if body == 'Mars':
-                    true_anomaly = np.rad2deg(ss_data['Mars_true_anomaly'][frame])
-                    ecc_anomaly = np.rad2deg(ss_data['Mars_eccentric_anomaly'][frame])
-
-                    mars_text = (
-                        r'$\mathbf{MARS \ TELEMETRY}$' + '\n' +
-                        rf'True Anom ($\theta_2$): ${true_anomaly:06.2f}^\circ$' + '\n' +
-                        rf'Ecc  Anom ($\phi_2$): ${ecc_anomaly:06.2f}^\circ$' + '\n' +
-                        rf'Abs X: {current_x:+07.4f}' + '\n' +
-                        rf'Abs Y: {current_y:+07.4f}'
-                    )
-                    worker_assigned_axis.text(0.03, 0.03, mars_text, transform=worker_assigned_axis.transAxes,
-                                              fontsize=9, verticalalignment='bottom', horizontalalignment='left',
-                                              bbox=dict(facecolor='black', alpha=0.6, edgecolor='#444444', boxstyle='round,pad=0.5'),
-                                              fontfamily='monospace')
-
-        if (frame_time >= 65.0):
-            trail_x = rocket_data['Rocket_X'][0:frame+1]
-            trail_y = rocket_data['Rocket_Y'][0:frame+1]
-            worker_assigned_axis.plot(trail_x, trail_y, color=rocket_color, ls='dashdot', linewidth=1, alpha=0.8)
-
-            current_x = rocket_data['Rocket_X'][frame]
-            current_y = rocket_data['Rocket_Y'][frame]
-            worker_assigned_axis.plot(current_x, current_y, label='Rocket', marker='^', ls='', color='white', ms=4)
-
-            traj_x = rocket_traj_data['Traj_X']
-            traj_y = rocket_traj_data['Traj_Y']
-            worker_assigned_axis.plot(traj_x, traj_y, label='Targeting Solution', ls='--', color='white', lw=.4, alpha=0.6)
-
-        # Draw the Legend
+        # Legend
         if not worker_assigned_axis.get_legend():
-            worker_assigned_axis.legend(fontsize=9, markerscale=0.8, loc='center right', framealpha=0.2, edgecolor='#444444', labelcolor='white')
+            worker_assigned_axis.legend(fontsize=9, markerscale=0.8, loc='center right', framealpha=0.3, edgecolor='#444444', labelcolor='white')
 
-        # save figure to disk 
-        worker_assigned_fig.savefig(frames_output_path+fr'/frame{frame:04d}.png', 
-                                    dpi=anim_dpi,
-                                    pad_inches=0.2,
-                                    facecolor=worker_assigned_fig.get_facecolor())
+        worker_assigned_fig.savefig(frames_output_path+fr'/frame{frame:04d}.png', dpi=anim_dpi, pad_inches=0.2, facecolor=worker_assigned_fig.get_facecolor())
         return (frame, True)
 
     except Exception as e:
-        print(f'{bcolors.FAIL}Failed to render frame {frame}.\n{bcolors.OKCYAN}Cause:{bcolors.FAIL}{e}')
+        print(f'{bcolors.FAIL}Failed to render frame {frame}.\nCause: {e}{bcolors.ENDC}')
         return (frame, False)
     
-# central thread
 if __name__=='__main__':
-    # replace directory if its already made
     os.makedirs(frames_output_path, exist_ok=True)
-
-    # clear out old frames to avoid overlapping error I faced
     print(f"{bcolors.BOLD}Clearing old frames...{bcolors.ENDC}")
-
     for file_name in os.listdir(frames_output_path):
-        file_path = os.path.join(frames_output_path, file_name)
-        if os.path.isfile(file_path):
-            os.remove(file_path)  
+        os.remove(os.path.join(frames_output_path, file_name))
 
-    # load csv data into pandas dataframe
     try:
-        ss_data = pd.read_csv("C:/Users/lenovo/Documents/Lamberts_BVP/simulation_data/solar_system_data.csv")
-        rocket_data = pd.read_csv("C:/Users/lenovo/Documents/Lamberts_BVP/simulation_data/rocket_data.csv")
-        rocket_traj_data = pd.read_csv("C:/Users/lenovo/Documents/Lamberts_BVP/simulation_data/rocket_traj_data.csv")
+        # Load the dynamic and static data
+        dyn_df = pd.read_csv(data_dir + "simulation_dynamic_data.csv")
+        static_df = pd.read_csv(data_dir + "simulation_static_data.csv")
+        traj_df = pd.read_csv(data_dir + "rocket_traj_data.csv")
+        
+        # Dynamically find and load the manifest (assuming only one exists in the dir)
+        manifest_files = glob.glob(data_dir + "*_manifest.csv")
+        manifest_df = pd.read_csv(manifest_files[0])
+        manifest = manifest_df.iloc[0].to_dict() # Convert first row to dictionary
         
     except Exception as e:
-        print(f'{bcolors.FAIL}Failed to read simulation data...\nCause: {e}')
-    else:
-        print(f'{bcolors.OKGREEN}Successfully read simulation data!')
-
-    np_ss_data={col:ss_data[col].values for col in ss_data.columns}
-    np_rocket_data={col:rocket_data[col].values for col in rocket_data.columns}
-    np_rocket_traj_data={col:rocket_traj_data[col].values for col in rocket_traj_data.columns}
-
-    # load celestial bodies names from data and assign random colors to each (dictionary)
-    celestial_bodies = [col.replace('_X','') for col in ss_data.columns if col.endswith('_X')]
-    rocket = [col.replace('_X','') for col in rocket_data.columns if col.endswith('_X')][0]
-
-    # give all bodies a random color. especially meant for miscellaneous bodies such as asteroids
-    bodies_colors={body:np.random.rand(3) for body in celestial_bodies}
-    rocket_color=np.random.rand(3)
-
-    # now give special colors to some special bodies
-    bodies_colors['Sun']='yellow'
-    bodies_colors['Mercury']='darkgray'
-    bodies_colors['Venus']='gold'
-    bodies_colors['Earth']='royalblue'
-    bodies_colors['Mars']='red'
-    # not accounting outer belt planets for now as they have minimal input of gravity 
-
-    #bodies_colors['Jupiter']='lemonchiffon'
-    #bodies_colors['Saturn']='beige'
-    #bodies_colors['Uranus']='lightcyan'
-    #bodies_colors['Neptune']='mediumslateblue'
-
-    frame_success=0
-    frame_failed=0
-    if frame_step<=0:
-        frame_step=1
-
-    print(f"\n{bcolors.UNDERLINE}Loading simulation data...{bcolors.ENDC}")
+        print(f'{bcolors.FAIL}Failed to read simulation data...\nCause: {e}{bcolors.ENDC}')
+        exit()
     
-    print(f'{bcolors.HEADER}\n\n------RENDER PROPERTIES------{bcolors.ENDC}')
-    print(f'{bcolors.OKCYAN}\nFile Name: {anim_title} {bcolors.ENDC}')
-    print(f'{bcolors.OKCYAN}File Extension: {anim_extension} {bcolors.ENDC}')
-    print(f'{bcolors.OKCYAN}Frame Rate: {anim_fps}fps {bcolors.ENDC}')
-    print(f'{bcolors.OKCYAN}DPI: {anim_dpi} {bcolors.ENDC}')
+    print(f'{bcolors.OKGREEN}Successfully loaded data for Mission: {manifest["Mission_ID"]}{bcolors.ENDC}')
 
-    core_count=multiprocessing.cpu_count()
+    # process Static Data into a fast dictionary lookup
+    static_data = {}
+    for _, row in static_df.iterrows():
+        # Clean up shapes (matplotlib gets mad if shapes are read as strings instead of characters)
+        shape_str = str(row['body_shape']).strip()
+        static_data[row['body_name']] = {
+            'mass': row['body_mass'],
+            'radius': row['body_radius'],
+            'shape': shape_str if shape_str else 'o',
+            'draw': int(row['body_draw'])
+        }
 
-    worker_count=max(1, core_count-1) if core_count > 4 else core_count
+    # Convert dynamic dataframe to fast numpy dictionary
+    np_dyn_data = {col: dyn_df[col].values for col in dyn_df.columns}
+    np_traj_data = {col: traj_df[col].values for col in traj_df.columns}
+    
+    celestial_bodies = list(static_data.keys())
 
-    print(f'{bcolors.OKCYAN}Cores Available: {core_count}')
-    print(f'{bcolors.OKCYAN}Workers to be used: {worker_count}')
+    # assign random colors to all, then set special colors for specific bodies
+    colors = {body: np.random.rand(3) for body in celestial_bodies}
+    color_map = {'Sun': 'yellow', 'Mercury': 'darkgray', 'Venus': 'gold', 'Earth': 'royalblue', 'Mars': 'red', 'Jupiter':'tan'}
+    for name, c in color_map.items():
+        if name in colors: colors[name] = c
+    colors[manifest['Ship_ID']] = 'papayawhip'
+
+    print(f"\n{bcolors.UNDERLINE}Starting Renderer...{bcolors.ENDC}")
+    core_count = multiprocessing.cpu_count()
+    worker_count = max(1, core_count - 1)
 
     choice_render = input(f'\n{bcolors.WARNING}Start rendering? (Y/N)\n--> {bcolors.ENDC}')
 
-    if choice_render.lower()=='y':
-        print(f'{bcolors.BOLD}\n\n-------STARTING PARALLEL PROCESSING ON {core_count} CORES-------------')
-
-        render_time_start=time.time()
-        frames_to_render=min(frames_to_render, len(ss_data))
+    if choice_render.lower() == 'y':
+        render_time_start = time.time()
+        frames_to_render = min(frames_to_render, len(dyn_df))
         frames = range(1, frames_to_render, frame_step)
 
-        # arguments to be passed to each worker task
-        task_args=[(frame, np_ss_data, np_rocket_data, np_rocket_traj_data, celestial_bodies, bodies_colors, rocket_color) for frame in frames]
+        task_args = [(frame, np_dyn_data, static_data, np_traj_data, manifest, celestial_bodies, colors) for frame in frames]
         
-        # start multiprocessing
+        frame_success, frame_failed = 0, 0
         with multiprocessing.Pool(processes=worker_count, initializer=worker_task) as pool:
-            # use alive bar for beautification (awesome module)
             with alive_bar(len(frames)) as bar:
                 for frame, success in pool.imap_unordered(render_frame_task, task_args, chunksize=4):
-                    if success:
-                        frame_success+=1
-                    else:
-                        frame_failed+=1
-                        print(f'{bcolors.FAIL}\nCould not render frame {frame}.{bcolors.ENDC}')
-                        break
+                    if success: frame_success += 1
+                    else: frame_failed += 1
                     bar() 
 
-
-        render_time_end=time.time()
-        render_time=render_time_end-render_time_start
-
-        print(f'\nRender complete. Finished in {render_time:.2f}s.')
-        print(f'\n{bcolors.OKGREEN}SUCCESSFUL FRAMES RENDERED: {frame_success}{bcolors.ENDC}')
-        print(f'\n{bcolors.FAIL}FRAMES FAILED: {frame_failed}{bcolors.ENDC}')
-
-        print(f'{bcolors.OKBLUE}Finished Rendering Frames!{bcolors.ENDC}')
-
+        render_time = time.time() - render_time_start
+        print(f'\n{bcolors.OKGREEN}Finished in {render_time:.2f}s. Success: {frame_success} | Failed: {frame_failed}{bcolors.ENDC}')
+        
         # pass frame sequence to sequential renderer
         sequential_renderer.generate_video(frames_output_path, anim_fps, anim_title+anim_extension, anim_output_path)
-
-    else:
-        print(f'{bcolors.WARNING}Cancelled render...')

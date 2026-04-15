@@ -1,0 +1,2 @@
+Mission_ID,Origin,Target,Launch_Day,Mission_Duration,Payload_Mass,Launch_Phase_Angle,Injection_Delta_V,Ship_ID
+105-Day Mercury Fly-By,Earth,Mercury,50,105,1500,235.387,0.00393623,Jarvis-5
