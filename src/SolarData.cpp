@@ -3,6 +3,8 @@
 #include <string>
 #include <algorithm>
 #include <vector>
+#include <unordered_map>
+#include<map>
 
 using namespace OrbitForge;
 
@@ -10,22 +12,40 @@ namespace OrbitForge
 {
     namespace SolarData
     {
-        TrueSolarBody::TrueSolarBody(std::string _name, double m, double r, double e, double w) 
-        : name(_name), body_mass(m), orbit_radius(r), orbit_ecc(e), angular_vel(w){}; 
-
-        /* @brief Ephemeris data of actual solar bodies in the universe
-        */
-        std::vector<TrueSolarBody> TrueSolarBodies = {
-            {"Mercury", 3.30e23, 57909050000.0, 0.2056, 8.264e-07},
-            {"Venus",   4.87e24, 108208000000.0, 0.0068, 3.232e-07},
-            // Set Earth to exactly 1 AU in meters
-            {"Earth",   5.97e24, 149597870700.0, 0.0167, 1.992e-07}, 
-            {"Mars",    6.42e23, 227939200000.0, 0.0934, 1.059e-07},
-            {"Jupiter", 1.90e27, 7.78e11, 0.0484, 1.673e-08},
-            {"Saturn",  5.68e26, 1.43e12, 0.0541, 9.294e-09},
-            {"Uranus",  8.68e25, 2.88e12, 0.0463, 2.360e-09},
-            {"Neptune", 1.02e26, 4.50e12, 0.0097, 1.208e-09},
+        struct IntrinsicData {
+            double mass_kg;
         };
+
+        struct OrbitalRelation {
+            double semi_major_axis_m;
+            double eccentricity;
+        };
+
+        static std::unordered_map<std::string, IntrinsicData> BodyCatalog = {
+            {"Sun", {1.989e+30}},
+            {"Mercury", {3.30e23}},
+            {"Earth", {5.97e24}},
+            {"Mars", {6.42e23}},
+            {"Jupiter", {1.90e27}},
+            {"Saturn",  {5.68e269}},
+            {"Uranus",  {8.68e25}},
+            {"Neptune", {1.02e26}}
+        };
+
+        static std::map<std::pair<std::string, std::string>, OrbitalRelation> OrbitalData = {
+            { {"Mercury", "Sun"}, {57909050000.0, 0.2056} },
+            { {"Venus", "Sun"}, {108208000000.0, 0.0068} },
+            { {"Earth", "Sun"}, {149597870700.0, 0.0167} }, 
+            { {"Mars", "Sun"}, {227939200000.0, 0.0934} },
+            { {"Jupiter", "Sun"}, {7.78e11, 0.0484} },
+            { {"Saturn", "Sun"}, {1.43e12, 0.0541} },
+            { {"Uranus", "Sun"}, {2.88e12, 0.0463} },
+            { {"Neptune", "Sun"}, {4.50e12, 0.0097} },
+            
+            // Geocentric Orbits
+            { {"Moon", "Earth"},  {384400000.0, 0.0549, 2.661e-06}}
+        };
+
 
         double to_solarmass (double mass_in_kg)
         {
@@ -45,63 +65,73 @@ namespace OrbitForge
         double get_mass_SI(std::string body_name)
         {
             double m = 1;
-            for (auto&body:TrueSolarBodies)
-                if (body.name==body_name)
-                    m = body.body_mass;
+            auto it = BodyCatalog.find(body_name);
+
+            if (it!=BodyCatalog.end()) {
+                return it->second.mass_kg;
+            }
+
+            return m;
+        }
+        
+        double get_mass_SM(std::string body_name)
+        {
+            double m = 1;
+            auto it = BodyCatalog.find(body_name);
+
+            if (it!=BodyCatalog.end()) {
+                return to_solarmass(it->second.mass_kg);
+            }
 
             return m;
         }
 
-        double get_orbit_ecc(std::string body_name)
+        double get_orbit_ecc(std::string body_name, std::string pgb_name)
         {
             double e = 0.0;
-            for (auto&body:TrueSolarBodies)
-                if (body.name==body_name)
-                    e = body.orbit_ecc;
+            if (pgb_name=="Sun") {
+                for (auto&body:TrueSolarBodies)
+                    if (body.name==body_name)
+                        e = body.orbit_ecc;
+            }
+
+            else if (pgb_name=="Earth") {
+                if (body_name=="Moon")
+                    e = 0.0549;
+            }
 
             return e;
         }
 
-        double get_orbit_semi_major_SI(std::string body_name)
+        double get_orbit_semi_major_SI(std::string body_name, std::string pgb_name)
         {
             double a = 0.0;
-            for (const auto&body:TrueSolarBodies)   
-                if (body.name==body_name)
-                    a = body.orbit_radius;
+            if (pgb_name=="Sun")
+                for (const auto&body:TrueSolarBodies)   
+                    if (body.name==body_name)
+                        a = body.orbit_radius;
+            else if (pgb_name=="Earth") {
+                if (body_name=="Moon")
+                    a = 384400000;
+            }
 
             return a;
         }
 
-        double get_orbit_semi_major_AU(std::string body_name)
+        double get_orbit_semi_major_AU(std::string body_name, std::string pgb_name)
         {
             double a = 0.0;
             for (auto& body : TrueSolarBodies)   
                 if (body.name==body_name)
                     a = to_au(body.orbit_radius);
+            
+            else if (pgb_name=="Earth") {
+                if (body_name=="Moon")
+                    a = 0.00257;
+            }
+
 
             return a;
         }
-
-        double get_mass_SM(std::string body_name)
-        {
-            double m = 1.0;
-            for (auto& body:TrueSolarBodies)
-                if (body.name==body_name)
-                    m= to_solarmass(body.body_mass);
-
-            return m;
-        }
-        
-
-        double get_orbit_angular_vel(std::string body_name)
-        {
-            double w = 0.0;
-            for (auto& body: TrueSolarBodies)
-                if (body.name==body_name)
-                    w = body.angular_vel;
-                
-            return w;
-        }
-
     }
 }

@@ -48,8 +48,8 @@ namespace OrbitForge
         */
         CelestialBody create_planet(std::string name, double radius, double start_angle_deg, bool draw) {
             double mass = SolarData::get_mass_SM(name);
-            double a = SolarData::get_orbit_semi_major_AU(name);
-            double e = SolarData::get_orbit_ecc(name);
+            double a = SolarData::get_orbit_semi_major_AU(name, "Sun");
+            double e = SolarData::get_orbit_ecc(name, "Sun");
 
             //convert start angle to radians
             double theta = start_angle_deg * (PI/180);
@@ -71,6 +71,18 @@ namespace OrbitForge
             Vector3 u = Vector3(-h_p * sin(theta), h_p * (e + cos(theta)), 0);
 
             return CelestialBody(name, BodyType::PLANET, mass, radius, 'o', init_pos, u, draw, false);
+        }
+
+        /* @brief Helper function to create and store moons/asteroids that orbit planets in the simulation
+        @param name Name of the moon
+        @param radius Rendering radius of the planet, for matplotlib
+        @param start_angle_deg Spawn angle of planet (with pericentre as base)
+        @param draw Whether to actually draw it in the render
+        @return The planet template
+        */
+        CelestialBody create_satellite(std::string satellite_name, const CelestialBody& pgb, double radius, double startAngleDeg, bool draw)
+        {
+            double mass = SolarData::get_mass_SM("Moon");
         }
 
         std::vector<CelestialBody> simulation_bodies;

@@ -5,6 +5,7 @@ __pycache__/
 
 simulation_data/solar_system_data.csv
 orbit_frames/*.png
+.hidden-items.json
 
 *.exe
 *.obj

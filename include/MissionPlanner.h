@@ -8,8 +8,11 @@
 
 namespace OrbitForge {
     enum class MissionPhase {
-        PRE_LAUNCH,
+        ON_GROUND,
+        LIFTOFF,
+        LEO,
         TRANSIT,
+        APPROACHING,
         REACHED,
         FAIL
     };
@@ -31,7 +34,7 @@ namespace OrbitForge {
         CelestialBody* ship;
         std::string shipID;
 
-        MissionPhase currentPhase = MissionPhase::PRE_LAUNCH;
+        MissionPhase currentPhase = MissionPhase::ON_GROUND;
         double currentElapsedTime = 0.0;
         double distanceToTarget;
 

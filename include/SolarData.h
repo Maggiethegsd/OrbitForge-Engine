@@ -29,22 +29,25 @@ namespace OrbitForge
          @return Semi-major axis of body in SI units (m).
       */
       double get_orbit_semi_major_SI(std::string body_name);
+
       /* @brief Fetch value of semi-major axis of body's orbit in SI units .
          @param name Name of celestial body
          @return Semi-major axis of body in SI units (m).
       */
       double get_mass_SI(std::string body_name);
+
       /* @brief Fetch value of mass of body in SI units.
          @param name Name of celestial body
          @return Mass of body in SI units (kg).
       */
-      double get_orbit_ecc(std::string body_name); 
+      double get_orbit_ecc(std::string body_name, std::string pgb_name); 
 
       /* @brief Fetch value of angular velocity of body's orbit.
          @param name Name of celestial body
          @return Angular velocity (degrees/day) of body's orbit
       */
-      double get_orbit_semi_major_AU(std::string body_name);
+      double get_orbit_semi_major_AU(std::string body_name, std::string pgb_name);
+
       /* @brief Fetch value of mass of body in SI units .
          @param name Name of celestial body
          @return Mass of body in SI units (kg).

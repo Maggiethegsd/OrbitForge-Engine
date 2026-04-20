@@ -33,27 +33,31 @@ namespace OrbitForge {
             else if (body.name == manifest.targetBody) target_ptr = &body;
         }
 
+        // rocket on ground of origin body
         if (current_time < manifest.targetLaunchDay) {
             manifest.ship->r=origin_ptr->r;
             manifest.ship->v=origin_ptr->v;
         }
 
+        // time to launch and we haven't yet
         if (current_time >= manifest.targetLaunchDay && !is_launched && manifest.currentPhase != MissionPhase::FAIL)
         {
             std::cout << "\n[Mission Planner] Launching mission " << manifest.missionID << " on day " << (int)current_time << ".\n";
-            
-            try {
-                calculate_and_execute_launch(current_time, bodies, dt);
-            }
-            catch(std::exception e)
-            {
-                std::cout<<std::endl<<e.what();
-            }
+            manifest.currentPhase = MissionPhase::LIFTOFF;
+
+            try { calculate_and_execute_launch(current_time, bodies, dt); }
+            catch(std::exception e) { std::cout<<std::endl<<e.what(); }
         }
 
-        if (is_launched) {
+        if (is_launched && manifest.currentPhase != MissionPhase::REACHED) {
             manifest.currentElapsedTime+=dt;
             manifest.distanceToTarget=Vector3::distance(manifest.ship->r, target_ptr->r);
+        }
+
+        if (manifest.currentPhase == MissionPhase::TRANSIT) {
+            // if we have completed 90% of the way there
+            if (manifest.distanceToTarget <= 0.1*Vector3::distance(origin_ptr->r, target_ptr->r))
+                manifest.currentPhase == MissionPhase::APPROACHING;
         }
     }
 
