@@ -1,10 +1,10 @@
-#include<vector>
-#include<fstream>
-#include<thread>
+#include <vector>
+#include <fstream>
+#include <thread>
 #include <iomanip>
 #include <unordered_map>
 #include <functional>
-#include<cmath>
+#include <cmath>
 
 #include "CelestialBody.h"
 #include "Dynamics.h"
@@ -46,10 +46,10 @@ namespace OrbitForge
         @param draw Whether to actually draw it in the render
         @return The planet template
         */
-        CelestialBody create_planet(std::string name, double radius, double start_angle_deg, bool draw) {
+        CelestialBody create_planet(std::string name, CelestialBody& pgb, double draw_radius, double start_angle_deg, bool draw) {
             double mass = SolarData::get_mass_SM(name);
-            double a = SolarData::get_orbit_semi_major_AU(name, "Sun");
-            double e = SolarData::get_orbit_ecc(name, "Sun");
+            double a = SolarData::get_orbit_semi_major_AU(name, pgb.name);
+            double e = SolarData::get_orbit_ecc(name, pgb.name);
 
             //convert start angle to radians
             double theta = start_angle_deg * (PI/180);
@@ -57,7 +57,7 @@ namespace OrbitForge
             //simple elliptical geometry transformations
 
             // gravitational parameter
-            double mu = G*1.0;
+            double mu = G*pgb.mass;
             // latus rectum
             double p = a * (1.0 - e*e);
             double r = p/(1.0 + e*cos(theta));
@@ -70,32 +70,62 @@ namespace OrbitForge
             // required initial velocity
             Vector3 u = Vector3(-h_p * sin(theta), h_p * (e + cos(theta)), 0);
 
-            return CelestialBody(name, BodyType::PLANET, mass, radius, 'o', init_pos, u, draw, false);
+            return CelestialBody(name, BodyType::PLANET, mass, draw_radius, 'o', init_pos, u, draw, false);
         }
 
         /* @brief Helper function to create and store moons/asteroids that orbit planets in the simulation
         @param name Name of the moon
-        @param radius Rendering radius of the planet, for matplotlib
+        @param pgb Reference to the primary gravitational body the satellite is supposed to orbit
+        @param draw_radius Rendering radius of the planet, for matplotlib
         @param start_angle_deg Spawn angle of planet (with pericentre as base)
         @param draw Whether to actually draw it in the render
         @return The planet template
         */
-        CelestialBody create_satellite(std::string satellite_name, const CelestialBody& pgb, double radius, double startAngleDeg, bool draw)
+        CelestialBody create_satellite(std::string satellite_name, CelestialBody& pgb, double draw_radius, double start_angle_deg, bool draw)
         {
-            double mass = SolarData::get_mass_SM("Moon");
+            double mass = SolarData::get_mass_SM(satellite_name);
+            double a = SolarData::get_orbit_semi_major_AU(satellite_name, pgb.name);
+            double e = SolarData::get_orbit_ecc(satellite_name, pgb.name);
+
+            //convert start angle to radians
+            double theta = start_angle_deg * (PI/180);
+
+            //simple elliptical geometry transformations
+            // gravitational parameter
+            double mu = G*pgb.mass;
+            // latus rectum
+            double p = a * (1.0 - e*e);
+            double r = p/(1.0 + e*cos(theta));
+
+            // convert from polar coordinates and spawn
+            Vector3 rel_pos = Vector3(r*cos(theta), r*sin(theta), 0);
+
+            // angular momentum
+            double h_p = sqrt(mu / p); 
+            // required initial velocity
+            Vector3 rel_u = Vector3(-h_p * sin(theta), h_p * (e + cos(theta)), 0);
+
+            Vector3 final_pos = pgb.r + rel_pos;
+            Vector3 final_vel = pgb.v + rel_u;
+
+            return CelestialBody(satellite_name, BodyType::PLANETARY_MOON, mass, draw_radius, 'o', final_pos, final_vel, draw, false);
         }
 
         std::vector<CelestialBody> simulation_bodies;
 
         void init_simulation()
         {
+            CelestialBody sun = CelestialBody("Sun", BodyType::STAR, 1, 10, 'o', Vector3::zero, Vector3::zero, true, false);
+            CelestialBody earth = create_planet("Earth", sun, 3.0, 0.0, true);
+
             simulation_bodies = {
-                CelestialBody("Sun", BodyType::STAR, 1, 10, 'o', Vector3::zero, Vector3::zero, true, false), 
-                create_planet("Mercury", 1.5, 312.97,true),
-                create_planet("Venus", 2.8, 0.0, true),
-                create_planet("Earth", 3.0, 0.0, true),
-                create_planet("Mars", 2.5, 67.36, true),
-                create_planet("Jupiter", 6.0, 142.23, true),
+                sun,
+                create_planet("Mercury", sun, 1.5, 312.97,true),
+                create_planet("Venus", sun, 2.8, 0.0, true),
+                earth,
+                create_satellite("Moon", earth, 1.5, 0, true),
+                create_planet("Mars", sun, 2.5, 67.36, true),
+                create_planet("Jupiter", sun, 6.0, 142.23, true),
                 CelestialBody(mission1.shipID, BodyType::MANMADE, mission1.payloadMass, 3.5, '^', Vector3::zero, Vector3::zero, true, true)
             };
         };
@@ -106,7 +136,7 @@ namespace OrbitForge
 
             pgb = Dynamics::get_pgb(simulation_bodies);
             for (auto& body : simulation_bodies) {
-                if (body.body_type == BodyType::STAR || body.body_type == BodyType::MANMADE) continue;
+                if (body.body_type == BodyType::STAR || body.body_type == BodyType::MANMADE || body.body_type==BodyType::PLANETARY_MOON) continue;
 
                 // vector pointing from sun to body
                 Vector3 r_rel = body.r - pgb->r;

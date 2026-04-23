@@ -42,9 +42,10 @@ namespace OrbitForge
 
             // create headers for all bodies
             for (auto& body:bodies) {
+                std::cout<<"Logging static data for " << body.name;
                 system_static_data << body.name << ',' << body.mass << ',' << body.radius << ',' << body.shape << ',' << body.draw << '\n';
 
-                if (body.body_type!=BodyType::STAR && body.body_type!=BodyType::MANMADE) {
+                if (body.body_type!=BodyType::STAR && body.body_type!=BodyType::MANMADE && body.body_type!=BodyType::PLANETARY_MOON) {
                     system_dynamic_data<<","
                     <<body.name<<"_X,"
                     <<body.name<<"_Y,"
@@ -93,7 +94,7 @@ namespace OrbitForge
                 <<","<<body.r.y
                 <<","<<body.r.z;
 
-                if (body.body_type == BodyType::STAR || body.body_type == BodyType::MANMADE)
+                if (body.body_type == BodyType::STAR || body.body_type == BodyType::MANMADE || body.body_type == BodyType::PLANETARY_MOON)
                     continue;
 
                 double e = Dynamics::calculate_orbit_eccentricity(body.r, body.v, G, pgb->mass);

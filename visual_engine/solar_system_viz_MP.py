@@ -2,7 +2,7 @@
 import pandas as pd
 import numpy as np
 
-# plotting and rendering
+# plotting and renderingWE
 import matplotlib
 import matplotlib.pyplot as plt
 matplotlib.use('Agg')
@@ -22,15 +22,15 @@ np.random.seed(19680801)
 
 # --- CONFIGURATION ---
 frames_to_render = 20000000
-frame_step = 20  # Reduced step for smoother visualization, adjust as needed
-data_dir = r'C:/Users/lenovo/Documents/OrbitForge-Engine/simulation_data/'
-frames_output_path = r'C:/Users/lenovo/Documents/OrbitForge-Engine/orbit_frames/'
-anim_output_path = r'C:/Users/lenovo/Documents/OrbitForge-Engine/'
+frame_step = 40  # Reduced step for smoother visualization, adjust as needed
+data_dir = r'C:/Users/Public/Public Misc/OrbitForge-Engine/simulation_data/'
+frames_output_path = r'C:/Users/Public/Public Misc/OrbitForge-Engine/orbit_frames/'
+anim_output_path = r'C:/Users/Public/Public Misc/OrbitForge-Engine/'
 
 anim_title = 'Mission_Playback'
 anim_extension = '.mp4'
-anim_fps = 30
-anim_dpi = 150
+anim_fps = 24
+anim_dpi = 100
 
 lock_frame_to_pgb = True
 space_bounds_x = 2 # Adjusted for inner solar system (AU)

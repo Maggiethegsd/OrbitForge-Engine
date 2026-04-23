@@ -9,6 +9,7 @@ namespace OrbitForge {
     enum class BodyType {
         STAR,
         PLANET,
+        PLANETARY_MOON,
         ASTEROID,
         MANMADE
     };

@@ -28,18 +28,18 @@ namespace OrbitForge {
 
         // assign pointers
         for (auto& body : bodies) {
-            if (body.body_type==BodyType::STAR) pgb_ptr = &body;
+            if (body.body_type == BodyType::STAR) pgb_ptr = &body;
             else if (body.name == manifest.originBody) origin_ptr = &body;
             else if (body.name == manifest.targetBody) target_ptr = &body;
         }
 
-        // rocket on ground of origin body
+        // rocket on ground of origin body before launch day
         if (current_time < manifest.targetLaunchDay) {
             manifest.ship->r=origin_ptr->r;
             manifest.ship->v=origin_ptr->v;
         }
 
-        // time to launch and we haven't yet
+        // launch day!
         if (current_time >= manifest.targetLaunchDay && !is_launched && manifest.currentPhase != MissionPhase::FAIL)
         {
             std::cout << "\n[Mission Planner] Launching mission " << manifest.missionID << " on day " << (int)current_time << ".\n";
@@ -49,6 +49,7 @@ namespace OrbitForge {
             catch(std::exception e) { std::cout<<std::endl<<e.what(); }
         }
 
+        // rocket in transit and we haven't reached.
         if (is_launched && manifest.currentPhase != MissionPhase::REACHED) {
             manifest.currentElapsedTime+=dt;
             manifest.distanceToTarget=Vector3::distance(manifest.ship->r, target_ptr->r);
@@ -57,7 +58,7 @@ namespace OrbitForge {
         if (manifest.currentPhase == MissionPhase::TRANSIT) {
             // if we have completed 90% of the way there
             if (manifest.distanceToTarget <= 0.1*Vector3::distance(origin_ptr->r, target_ptr->r))
-                manifest.currentPhase == MissionPhase::APPROACHING;
+                manifest.currentPhase = MissionPhase::APPROACHING;
         }
     }
 
@@ -91,8 +92,12 @@ namespace OrbitForge {
         double pgb_mass = pgb->mass;
 
         // get current ephemeris of target
-        double target_e = Dynamics::calculate_orbit_eccentricity(target_pos, target_vel, G, pgb_mass);
-        double target_a = Dynamics::calculate_orbit_semi_major(target_pos, target_vel, G, pgb_mass);
+        Vector3 target_rel_pos = target_pos - pgb_pos;
+        Vector3 target_rel_vel = target_vel - pgb_vel;
+
+
+        double target_e = Dynamics::calculate_orbit_eccentricity(target_rel_pos, target_rel_vel, G, pgb_mass);
+        double target_a = Dynamics::calculate_orbit_semi_major(target_rel_pos, target_rel_vel, G, pgb_mass);
 
         // geometric center of target's orbit around pgb 
         Vector3 GC_target_orbit = pgb_pos - Vector3(target_e*target_a, 0, 0);

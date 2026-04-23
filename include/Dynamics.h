@@ -9,8 +9,8 @@ namespace OrbitForge
     namespace Dynamics
     {
         // extreme precision of constants
-        static constexpr double G = 0.0002959122082855911;;
-        static constexpr double PI  =3.1415926;
+        static constexpr double G  = 0.0002959122082855911;;
+        static constexpr double PI = 3.1415926;
         
 
         /* @brief Simulate and apply next physical state to a group of celestial bodies and rocket by applying interactive forces, by a timestep.
