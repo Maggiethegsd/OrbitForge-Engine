@@ -2,6 +2,7 @@
 #include <fstream>
 #include <thread>
 #include <iomanip>
+
 #include <unordered_map>
 #include <functional>
 #include <cmath>
@@ -37,7 +38,9 @@ namespace OrbitForge
         static std::unordered_map<std::string, double> periapsisTimes;
 
         MissionManifest mission1("105-Day Mercury Fly-By", "Jarvis-5", "Earth", "Mercury", 50, 105, 1500);
-        MissionPlanner planner_m1(mission1);
+
+
+        MissionPlanner planner(mission1);
 
         /* @brief Helper function to create and store planets/asteroids in the simulation
         @param name Name of the planet
@@ -173,10 +176,10 @@ int main()
 
     for (auto& body: simulation_bodies) {
         if (body.name==mission1.shipID)
-            planner_m1.manifest.ship = &body;
+            planner.manifest.ship = &body;
     }
 
-    if (planner_m1.manifest.ship == nullptr) {
+    if (planner.manifest.ship == nullptr) {
         std::cerr<<"FATAL: Ship pointer for " << mission1.missionID << " missing.";
         return 1;
     }
@@ -192,7 +195,7 @@ int main()
         // simulation tick
         Dynamics::simulation_step(simulation_bodies, dt, false);
 
-        planner_m1.update(t, simulation_bodies, dt);
+        planner.update(t, simulation_bodies, dt);
 
         track_periapsis(t);
         // update parameters in solar system data

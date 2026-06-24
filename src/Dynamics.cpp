@@ -12,6 +12,7 @@ using namespace OrbitForge;
 
 namespace OrbitForge 
 {
+    // contains methods for all geometrical and physical calculations for the simulation
     namespace Dynamics
     {
         double get_orbit_u(double pgb_mass, double orbit_radius, double G)

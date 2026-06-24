@@ -1,7 +1,8 @@
 logs/
 *.logs
-*.vscode
+.vscode/
 __pycache__/
+build/
 
 simulation_data/solar_system_data.csv
 orbit_frames/*.png

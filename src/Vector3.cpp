@@ -76,6 +76,11 @@ namespace OrbitForge {
             return theta;
         }
 
+        double Vector3::scalar_triple_product(Vector3 v1, Vector3 v2, Vector3 v3)
+        {
+            return dot(v1, cross(v2, v3));
+        }
+
         double Vector3::distance(Vector3 v1, Vector3 v2)
         {
             return (v1-v2).magnitude();

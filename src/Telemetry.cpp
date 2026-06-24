@@ -9,6 +9,7 @@
 #include <unordered_map>
 #include<string>
 #include<vector>
+#include<filesystem>
 
 using namespace OrbitForge;
 using namespace OrbitForge::Dynamics;
@@ -20,16 +21,25 @@ namespace OrbitForge
         std::ofstream system_dynamic_data;
         std::ofstream system_static_data;
         std::ofstream trajectories_data;
+        
+        // start writing to CSV files
+        std::string cwd = "";
 
         void setup_telemetry_logging(std::vector<CelestialBody>& bodies)
         {
             #pragma region CSV Setup
             std::ios_base::sync_with_stdio(false);
             
-            // start writing to CSV files
-            system_dynamic_data.open("C:/Users/lenovo/Documents/OrbitForge-Engine/simulation_data/simulation_dynamic_data.csv");
-            system_static_data.open("C:/Users/lenovo/Documents/OrbitForge-Engine/simulation_data/simulation_static_data.csv");
-            trajectories_data.open("C:/Users/lenovo/Documents/OrbitForge-Engine/simulation_data/rocket_traj_data.csv");
+            try {
+                cwd = std::filesystem::current_path().string(); 
+            }
+            catch (const std::filesystem::filesystem_error& e) {
+                std::cerr << "Error: " << e.what() << std::endl;
+            }
+
+            system_dynamic_data.open(cwd+"/simulation_dynamic_data.csv");
+            system_static_data.open(cwd+"/simulation_static_data.csv");
+            trajectories_data.open(cwd+"/rocket_traj_data.csv");
 
             system_dynamic_data << std::fixed << std::setprecision(7);
             trajectories_data << std::fixed << std::setprecision(6);
@@ -131,7 +141,7 @@ namespace OrbitForge
 
         void log_mission_manifest(MissionManifest manifest)
         {
-            std::ofstream manifest_file("C:/Users/lenovo/Documents/OrbitForge-Engine/simulation_data/" + manifest.missionID + "_manifest.csv");
+            std::ofstream manifest_file(cwd + "/" + manifest.missionID + "_manifest.csv");
             
             manifest_file << "Mission_ID,Origin,Target,Launch_Day,Mission_Duration,Payload_Mass,Launch_Phase_Angle,Injection_Delta_V,Ship_ID\n";
             manifest_file << manifest.missionID<<","<<

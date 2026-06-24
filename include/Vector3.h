@@ -36,6 +36,7 @@ namespace OrbitForge
             static double angle_acos(Vector3 v1, Vector3 v2);
             static double angle(Vector3 v1, Vector3 v2);
             static double distance(Vector3 v1, Vector3 v2);
+            static double scalar_triple_product(Vector3 v1, Vector3 v2, Vector3 v3);
         };
 
         // global operator for scalar * vector

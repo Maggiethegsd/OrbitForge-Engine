@@ -50,4 +50,22 @@ namespace OrbitForge {
       // Whether body is in simulation's first tick
       first_tick_complete = false;
    }
+
+    /* @brief Information and calculations of orbit of one body around another.
+      @param _a Semi-major axis of the orbit
+      @param _e Eccentricity of the orbit
+      @param _i Inclination of the orbit
+      @param _omega Longitude of the ascending node
+      @param _w Argument of the periapsis
+   */
+   Orbit::Orbit(double _a, double _e, double _i, double _omega, double _w) 
+    : semi_major_axis(_a), 
+      eccentricity(_e), 
+      inclination(_i), 
+      longitude_of_ascending_node(_omega), 
+      longitude_of_periapsis(_w), 
+      arg_of_periapsis(0.0) 
+   {
+      
+   }
 }
